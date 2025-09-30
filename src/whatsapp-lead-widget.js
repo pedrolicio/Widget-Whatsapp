@@ -11,10 +11,13 @@
   function mergeDeep(target, source){
     var t = Object(target), s = Object(source);
     Object.keys(s).forEach(function(k){
-      if (s[k] && typeof s[k] === "object" && !Array.isArray(s[k])) {
-        t[k] = mergeDeep(t[k] || {}, s[k]);
+      var value = s[k];
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        t[k] = mergeDeep(t[k] || {}, value);
+      } else if (Array.isArray(value)) {
+        t[k] = value.slice();
       } else {
-        t[k] = s[k];
+        t[k] = value;
       }
     });
     return t;
@@ -64,6 +67,11 @@
 
   Widget.prototype._injectCSS = function(){
     var c = this.cfg, t = c.theme;
+    var existing = document.head.querySelector('style[data-wlw-style]');
+    if (existing) {
+      this.styleTag = existing;
+      return;
+    }
     var css = `
       .wlw-modal { position: fixed; bottom: 20px; right: 20px; width: 340px;
         border: 1px solid #cacaca; border-radius: 6px; overflow: hidden;
@@ -92,9 +100,10 @@
       .wlw-footer a:hover { text-decoration: underline; }
       @media (max-width: 420px) { .wlw-modal { width: calc(100% - 40px); right: 20px; left: 20px; } }
     `;
-    var style = createEl("style");
+    var style = createEl("style", { "data-wlw-style": "true" });
     style.textContent = css;
     document.head.appendChild(style);
+    this.styleTag = style;
   };
 
   Widget.prototype._build = function(){
@@ -106,21 +115,27 @@
     this.fab.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">';
     this.container.appendChild(this.fab);
 
-    this.modal = createEl("div", { class:"wlw-modal", role:"dialog", "aria-modal":"true" });
+    this.modal = createEl("div", {
+      class:"wlw-modal",
+      role:"dialog",
+      "aria-modal":"true",
+      "aria-hidden":"true",
+      tabindex:"-1"
+    });
     this.modal.innerHTML = [
       '<div class="wlw-header">',
         '<img class="wlw-avatar" src="'+(c.brandImage||"")+'" alt="'+(c.brandTitle||"")+'">',
         '<div>',
-          '<div class="wlw-title">'+(c.brandTitle||"")+'</div>',
-          '<div class="wlw-status">'+(c.brandStatus||"")+'</div>',
+          '<div class="wlw-title" id="wlw-title">'+(c.brandTitle||"")+'</div>',
+          '<div class="wlw-status" id="wlw-status">'+(c.brandStatus||"")+'</div>',
         '</div>',
-        '<div class="wlw-close" aria-label="Fechar">×</div>',
+        '<button type="button" class="wlw-close" aria-label="Fechar modal">×</button>',
       '</div>',
-      '<div class="wlw-body">',
-        '<div class="wlw-msg">'+(c.texts.welcome||"")+'</div>',
+      '<div class="wlw-body" aria-labelledby="wlw-title" aria-describedby="wlw-description">',
+        '<div class="wlw-msg" id="wlw-description">'+(c.texts.welcome||"")+'</div>',
         '<form class="wlw-form" novalidate>',
           '<label class="wlw-label" for="wlw-name">'+(c.texts.nameLabel||"Nome *")+'</label>',
-          '<input id="wlw-name" class="wlw-input" type="text" name="nome" required placeholder="Seu nome" autocomplete="name">',
+          '<input id="wlw-name" class="wlw-input" type="text" name="nome" required placeholder="Seu nome" autocomplete="name" minlength="2">',
           '<label class="wlw-label" for="wlw-email">'+(c.texts.emailLabel||"Email *")+'</label>',
           '<input id="wlw-email" class="wlw-input" type="email" name="email" required placeholder="seu@email" autocomplete="email" inputmode="email">',
           '<div class="wlw-consent">',
@@ -139,13 +154,18 @@
 
     var self = this;
     this.fab.addEventListener("click", function(){ self.open(); });
-    $('.wlw-close', this.modal).addEventListener("click", function(){ self.modal.style.display="none"; });
-    $('.wlw-form', this.modal).addEventListener("submit", this._onSubmit.bind(this));
+    this.closeBtn = $('.wlw-close', this.modal);
+    this.closeBtn.addEventListener("click", function(){ self.close(); });
+    this.formEl = $('.wlw-form', this.modal);
+    this.formEl.addEventListener("submit", this._onSubmit.bind(this));
+    this._handleKeydown = this._onKeydown.bind(this);
+    document.addEventListener("keydown", this._handleKeydown);
 
     root.WhatsAppLeadWidget = root.WhatsAppLeadWidget || {};
     root.WhatsAppLeadWidget.open = this.open.bind(this);
     root.WhatsAppLeadWidget.setNumber = this.setNumber.bind(this);
     root.WhatsAppLeadWidget.destroy = this.destroy.bind(this);
+    root.WhatsAppLeadWidget.close = this.close.bind(this);
   };
 
   Widget.prototype._trackGA = function(){
@@ -174,6 +194,11 @@
     return new Promise(function(resolve){
       var done=false;
       var t=setTimeout(function(){ if(!done){done=true;resolve("");}}, ms);
+      if (typeof fetch !== "function") {
+        clearTimeout(t);
+        resolve("");
+        return;
+      }
       fetch("https://api.ipify.org?format=json").then(function(r){return r.json();}).then(function(j){
         if(!done){done=true;clearTimeout(t);resolve(j.ip||"");}
       }).catch(function(){ if(!done){done=true;clearTimeout(t);resolve("");}});
@@ -184,16 +209,25 @@
     if (!this.cfg.scriptURL) return Promise.resolve("skip-post");
     var fd = new FormData();
     Object.keys(payload).forEach(function(k){ if (payload[k] != null) fd.append(k, payload[k]); });
-    return fetch(this.cfg.scriptURL, { method:"POST", body: fd }).then(function(r){ return r.text(); });
+    if (typeof fetch !== "function") {
+      return Promise.reject(new Error("Fetch API indisponível"));
+    }
+    return fetch(this.cfg.scriptURL, { method:"POST", body: fd }).then(function(r){
+      if (!r.ok) throw new Error("HTTP "+r.status);
+      return r.text();
+    });
   };
 
   Widget.prototype._onSubmit = function(e){
     e.preventDefault();
+    if (!this.formEl.checkValidity()) {
+      if (this.formEl.reportValidity) this.formEl.reportValidity();
+      else alert(this.cfg.texts.required);
+      return;
+    }
     var name = $('#wlw-name', this.modal).value.trim();
     var email = $('#wlw-email', this.modal).value.trim();
     var consent = $('#wlw-consent', this.modal).checked ? "Sim" : "Não";
-
-    if (!name || !email) { alert(this.cfg.texts.required); return; }
 
     var btn = $('.wlw-submit', this.modal);
     btn.disabled = true;
@@ -205,6 +239,9 @@
     var number = this.runtimeNumber || this.cfg.whatsappNumber;
     var waUrl = "https://wa.me/" + number + "?text=" + encoded;
     var win = window.open(waUrl, "_blank");
+    if (!win) {
+      root.location.href = waUrl;
+    }
 
     var payload = mergeDeep({
       nome: name,
@@ -221,10 +258,10 @@
       return self._postLead(payload);
     }).then(function(){
       self._trackGA();
-      self.modal.style.display = "none";
+      self.close();
       btn.disabled = false;
       btn.textContent = (self.cfg.texts.submit || "Iniciar conversa");
-      $('.wlw-form', self.modal).reset();
+      self.formEl.reset();
     }).catch(function(err){
       console.error("[WhatsAppLeadWidget] Erro ao enviar dados:", err);
       alert("Ocorreu um erro ao enviar os dados. Tente novamente.");
@@ -251,7 +288,7 @@
       return "";
     }
 
-    document.addEventListener("click", function(e){
+    this._interceptHandler = function(e){
       var a = e.target.closest && e.target.closest("a[href]");
       if (!a) return;
       if (a.hasAttribute("data-skip-wa-widget")) return;
@@ -260,15 +297,47 @@
       e.preventDefault();
       var num = extractNumber(href);
       self.open(num || undefined);
-    }, true);
+    };
+    document.addEventListener("click", this._interceptHandler, true);
   };
 
   Widget.prototype.open = function(number){
     if (number) this.runtimeNumber = toDigits(number);
     else this.runtimeNumber = this.cfg.whatsappNumber;
     this.modal.style.display = "block";
+    this.modal.setAttribute("aria-hidden", "false");
+    this.fab.setAttribute("aria-expanded", "true");
     var nameEl = $('#wlw-name', this.modal);
     if (nameEl) nameEl.focus();
+  };
+
+  Widget.prototype.close = function(){
+    this.modal.style.display = "none";
+    this.modal.setAttribute("aria-hidden", "true");
+    this.fab.setAttribute("aria-expanded", "false");
+    this.fab.focus();
+  };
+
+  Widget.prototype._onKeydown = function(e){
+    if (e.key === "Escape" && this.modal.style.display === "block") {
+      e.preventDefault();
+      this.close();
+    }
+    var nameEl = $('#wlw-name', this.modal);
+    if (e.key === "Tab" && this.modal.style.display === "block") {
+      var focusable = this.modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      focusable = Array.prototype.slice.call(focusable).filter(function(el){ return !el.disabled && el.offsetParent !== null; });
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
   };
 
   Widget.prototype.setNumber = function(number){
@@ -280,9 +349,12 @@
       this.fab && this.fab.remove();
       this.modal && this.modal.remove();
     } catch(_) {}
+    if (this._handleKeydown) document.removeEventListener("keydown", this._handleKeydown);
+    if (this._interceptHandler) document.removeEventListener("click", this._interceptHandler, true);
     delete root.WhatsAppLeadWidget.open;
     delete root.WhatsAppLeadWidget.setNumber;
     delete root.WhatsAppLeadWidget.destroy;
+    delete root.WhatsAppLeadWidget.close;
     _instance = null;
   };
 
