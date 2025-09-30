@@ -1,3 +1,5 @@
+Este repositório contém um modelo de Google Apps Script para integrar uma planilha do Google com aplicações externas via Web App. Copie o conteúdo de `apps-script.gs` para o editor do Apps Script vinculado à sua planilha e ajuste as configurações conforme necessário.
+=======
 # WhatsApp Lead Widget
 
 Widget pronto para uso que capta informações de leads (nome, e-mail, consentimento e dados extras) antes de abrir uma conversa no WhatsApp. O componente foi pensado para ser facilmente incorporado em qualquer site estático ou aplicação existente.
