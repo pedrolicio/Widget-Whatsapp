@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WhatsApp Lead Widget - Exemplo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <style>
+      body {
+        font-family: "Open Sans", Arial, sans-serif;
+        background: #f5f5f5;
+        color: #2f353d;
+        margin: 0;
+        padding: 0 24px 120px;
+      }
+      header {
+        max-width: 960px;
+        margin: 60px auto 24px;
+        text-align: center;
+      }
+      header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 16px;
+      }
+      header p {
+        font-size: 1.125rem;
+        margin: 0;
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 12px;
+        padding: 32px;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+      }
+      main h2 {
+        margin-top: 0;
+      }
+      code {
+        background: #0f172a;
+        color: #f8fafc;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.95rem;
+      }
+      section + section {
+        margin-top: 24px;
+      }
+      .links {
+        margin-top: 24px;
+      }
+      .links a {
+        display: inline-block;
+        margin-right: 12px;
+        color: #036d5f;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>WhatsApp Lead Widget</h1>
+      <p>Capture informações de leads antes de iniciar uma conversa no WhatsApp.</p>
+    </header>
+    <main>
+      <section>
+        <h2>Como testar</h2>
+        <p>
+          Abra o arquivo <code>example/index.html</code> em seu navegador preferido. Clique no botão do WhatsApp no canto da tela,
+          preencha as informações e veja o fluxo completo do widget.
+        </p>
+      </section>
+      <section>
+        <h2>Configuração</h2>
+        <p>
+          O arquivo de configuração está logo após o script principal. Ajuste as propriedades conforme necessidade, incluindo
+          número do WhatsApp, rótulos, cores e endpoint para receber os dados capturados.
+        </p>
+      </section>
+      <section class="links">
+        <a href="https://wa.me/5511999999999" target="_blank" rel="noopener">Abrir conversa direta (interceptada)</a>
+        <a href="#" data-skip-wa-widget>Link ignorando o widget</a>
+      </section>
+    </main>
+
+    <script src="../src/whatsapp-lead-widget.js"></script>
+    <script>
+      WhatsAppLeadWidget.init({
+        scriptURL: "https://script.google.com/macros/s/SEU_SCRIPT/exec",
+        whatsappNumber: "5511999999999",
+        brandImage: "https://placehold.co/80x80",
+        brandTitle: "Minha Marca",
+        brandStatus: "online agora",
+        privacyPolicyUrl: "https://exemplo.com/politica",
+        interceptLinks: true,
+        enableGA4: true,
+        texts: {
+          welcome: "Olá! Para continuarmos, informe seu e-mail :)",
+          nameLabel: "Nome *",
+          emailLabel: "Email *",
+          consentLabel: "Aceito receber comunicados",
+          submit: "Iniciar conversa",
+          required: "Por favor, preencha Nome e Email."
+        },
+        theme: {
+          primary: "#036d5f",
+          primaryHover: "#02594d",
+          bubbleBg: "#efeae2",
+          inputBg: "#e7ffe7"
+        },
+        extraFields: {
+          origem: "Website - WhatsApp Widget"
+        }
+      });
+    </script>
+  </body>
+</html>
