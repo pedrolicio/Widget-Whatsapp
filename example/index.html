@@ -97,13 +97,20 @@
         privacyPolicyUrl: "https://exemplo.com/politica",
         interceptLinks: true,
         enableGA4: true,
+        contactFields: {
+          email: { enabled: true, required: false },
+          phone: { enabled: true, required: true }
+        },
         texts: {
-          welcome: "Olá! Para continuarmos, informe seu e-mail :)",
-          nameLabel: "Nome *",
-          emailLabel: "Email *",
+          welcome: "Olá! Para continuarmos, informe seus dados :)",
+          nameLabel: "Nome",
+          emailLabel: "Email",
+          phoneLabel: "Telefone",
           consentLabel: "Aceito receber comunicados",
           submit: "Iniciar conversa",
-          required: "Por favor, preencha Nome e Email."
+          required: "Por favor, preencha os campos obrigatórios.",
+          emailPlaceholder: "nome@empresa.com",
+          phonePlaceholder: "(11) 98888-7777"
         },
         theme: {
           primary: "#036d5f",
