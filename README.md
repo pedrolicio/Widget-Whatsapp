@@ -19,6 +19,8 @@ Widget pronto para uso que capta informações de leads (nome, e-mail, telefone,
 2. Inclua o script no final do `body` da sua página.
 3. Em seguida, inicialize o widget com a configuração desejada:
 
+![Preview do widget](docs/widget.png)
+
 ```html
 <script src="/caminho/para/whatsapp-lead-widget.js"></script>
 <script>
@@ -60,6 +62,41 @@ Widget pronto para uso que capta informações de leads (nome, e-mail, telefone,
 ```
 
 > Observação: o número do WhatsApp deve estar no formato `DDI + DDD + número`, contendo apenas dígitos.
+
+### Configurar a planilha do Google Sheets
+
+1. Acesse o [Google Sheets](https://docs.google.com/spreadsheets/) e crie uma nova planilha em branco.
+2. Renomeie a aba principal para algo fácil de identificar, por exemplo `Leads`.
+3. Na linha de cabeçalho (células `A1` até `H1`), preencha os seguintes rótulos, respeitando esta ordem: `nome`, `email`, `telefone`, `consent`, `timestamp`, `userAgent`, `pageUrl`, `userIP`.
+4. Caso deseje armazenar outros metadados enviados pelo widget, adicione novas colunas após `H1` com os nomes correspondentes.
+5. Compartilhe a planilha com o mesmo usuário que será utilizado no Google Apps Script (ou defina permissões conforme necessário) para garantir que o script possa gravar os dados.
+
+### Conectar com o Apps Script
+
+O modelo presente em [`apps-script.gs`](apps-script.gs) usa `JSON.parse(e.postData.contents)` para tratar requisições vindas de clientes que enviam o corpo como JSON. Quando o único cliente for o widget deste repositório, o Apps Script pode ler diretamente os parâmetros enviados pelo formulário, montando o `payload` a partir de `e.parameter`/`e.parameters` (consulte as linhas 102–114 para ajustar o template).
+
+#### Exemplo de `doPost` com parâmetros
+
+```js
+function doPost(e) {
+  const payload = {
+    nome: e.parameter.nome,
+    email: e.parameter.email,
+    telefone: e.parameter.telefone,
+    consent: e.parameter.consent === 'true',
+    timestamp: new Date(),
+    userAgent: e.parameter.userAgent,
+    pageUrl: e.parameter.pageUrl,
+    userIP: e.parameter.userIP,
+  };
+
+  appendToSheet_(payload);
+
+  return ContentService.createTextOutput(
+    JSON.stringify({ success: true })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+```
 
 ## Exemplo
 
