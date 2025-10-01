@@ -161,7 +161,9 @@
             ? `<a href="${cfg.privacyPolicyUrl}" target="_blank" rel="noopener">Política de Privacidade</a>`
             : ""
         }
-        <span>${cfg.privacyPolicyUrl ? " | " : ""}Powered by <a href="https://www.agenciaregex.com/" target="_blank" rel="noopener">Agência Regex</a></span>
+        <span>${
+          cfg.privacyPolicyUrl ? " | " : ""
+        }Powered by <a class="wlw-brand-link" href="https://www.agenciaregex.com/" target="_blank" rel="noopener noreferrer">Agência Regex</a></span>
       </div>
     </div>
   `;
@@ -200,6 +202,7 @@
       @keyframes wlwspin { to { transform: rotate(360deg); } }
       .wlw-footer { margin-top: 12px; font-size: 12px; text-align: center; color: #666; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
       .wlw-footer a { color: #666; text-decoration: none; }
+      .wlw-footer .wlw-brand-link { font-weight: 700; color: ${t.primary}; }
       .wlw-footer a:hover { text-decoration: underline; }
       @media (max-width: 420px) { .wlw-modal { width: calc(100% - 40px); right: 20px; left: 20px; } .wlw-fab img { height: 52px; } }
     `;
