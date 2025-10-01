@@ -77,6 +77,40 @@
     return output;
   };
 
+  const TRACKING_PARAMS = [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "gclid",
+    "fbclid",
+  ];
+
+  const collectTrackingData = () => {
+    const trackingData = {};
+    const search = global.location?.search || "";
+    if (search && typeof URLSearchParams === "function") {
+      const params = new URLSearchParams(search);
+      TRACKING_PARAMS.forEach((key) => {
+        const value = params.get(key);
+        if (value) {
+          trackingData[key] = value;
+        }
+      });
+    }
+
+    const pageUrl = global.location?.href || "";
+    if (pageUrl) {
+      trackingData.page_url = pageUrl;
+    }
+
+    const referrer = global.document?.referrer || "";
+    if (referrer) {
+      trackingData.referrer = referrer;
+    }
+
+    return trackingData;
+  };
+
   /**
    * Simplifica o disparo de logs.
    * @param {"log"|"warn"|"error"} level
@@ -507,17 +541,20 @@
       const popup = global.open(waUrl, "_blank");
 
       const payload = mergeDeep(
-        {
-          nome: name,
-          email,
-          telefone: phone,
-          consent,
-          timestamp: new Date().toLocaleString("pt-BR", {
-            timeZone: "America/Sao_Paulo",
-          }),
-          userAgent: global.navigator?.userAgent || "",
-          pageUrl: global.location?.href || "",
-        },
+        mergeDeep(
+          {
+            nome: name,
+            email,
+            telefone: phone,
+            consent,
+            timestamp: new Date().toLocaleString("pt-BR", {
+              timeZone: "America/Sao_Paulo",
+            }),
+            userAgent: global.navigator?.userAgent || "",
+            pageUrl: global.location?.href || "",
+          },
+          collectTrackingData()
+        ),
         this.config.extraFields || {}
       );
 
