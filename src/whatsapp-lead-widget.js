@@ -89,13 +89,23 @@
   };
 
   const DEFAULT_TEXTS = {
-    welcome: "Olá! Para continuarmos, informe seu e-mail :)",
+    welcome: "Olá! Para continuarmos, informe seus dados :)",
     nameLabel: "Nome *",
     emailLabel: "Email *",
+    phoneLabel: "Telefone *",
     consentLabel: "Aceito receber comunicados",
     submit: "Iniciar conversa",
-    required: "Por favor, preencha Nome e Email.",
+    required: "Por favor, preencha os campos obrigatórios.",
     invalidEmail: "Por favor, informe um email válido.",
+    invalidPhone: "Por favor, informe um telefone válido.",
+    namePlaceholder: "Seu nome",
+    emailPlaceholder: "seu@email",
+    phonePlaceholder: "(11) 99999-9999",
+  };
+
+  const DEFAULT_CONTACT_FIELDS = {
+    email: { enabled: true, required: true },
+    phone: { enabled: false, required: true },
   };
 
   const DEFAULT_THEME = {
@@ -124,6 +134,7 @@
     prefill: null,
     storageKey: null,
     storageExpirationMinutes: 60 * 24,
+    contactFields: DEFAULT_CONTACT_FIELDS,
   };
 
   /**
@@ -131,7 +142,52 @@
    * @param {Required<typeof DEFAULT_CONFIG>} cfg
    * @returns {string}
    */
-  const getModalMarkup = (cfg) => `
+  const formatLabel = (label, required) => {
+    const baseLabel = String(label || "").replace(/\s*\*$/, "");
+    return required ? `${baseLabel} *` : baseLabel;
+  };
+
+  const getModalMarkup = (cfg) => {
+    const fields = [];
+    fields.push(`
+        <label class="wlw-label" for="wlw-name">${formatLabel(
+          cfg.texts.nameLabel,
+          true
+        )}</label>
+        <input id="wlw-name" class="wlw-input" type="text" name="nome" required placeholder="${
+          cfg.texts.namePlaceholder || "Seu nome"
+        }" autocomplete="name">
+    `);
+
+    if (cfg.contactFields.email.enabled) {
+      const emailRequired = cfg.contactFields.email.required;
+      fields.push(`
+        <label class="wlw-label" for="wlw-email">${formatLabel(
+          cfg.texts.emailLabel,
+          emailRequired
+        )}</label>
+        <input id="wlw-email" class="wlw-input" type="email" name="email" ${
+          emailRequired ? "required" : ""
+        } placeholder="${cfg.texts.emailPlaceholder || "seu@email"}" autocomplete="email" inputmode="email">
+      `);
+    }
+
+    if (cfg.contactFields.phone.enabled) {
+      const phoneRequired = cfg.contactFields.phone.required;
+      fields.push(`
+        <label class="wlw-label" for="wlw-phone">${formatLabel(
+          cfg.texts.phoneLabel,
+          phoneRequired
+        )}</label>
+        <input id="wlw-phone" class="wlw-input" type="tel" name="telefone" ${
+          phoneRequired ? "required" : ""
+        } placeholder="${
+          cfg.texts.phonePlaceholder || "(11) 99999-9999"
+        }" autocomplete="tel" inputmode="tel">
+      `);
+    }
+
+    return `
     <div class="wlw-header">
       <img class="wlw-avatar" src="${cfg.brandImage || ""}" alt="${
         cfg.brandTitle || ""
@@ -145,10 +201,7 @@
     <div class="wlw-body">
       <div class="wlw-msg">${cfg.texts.welcome || ""}</div>
       <form class="wlw-form" novalidate>
-        <label class="wlw-label" for="wlw-name">${cfg.texts.nameLabel}</label>
-        <input id="wlw-name" class="wlw-input" type="text" name="nome" required placeholder="Seu nome" autocomplete="name">
-        <label class="wlw-label" for="wlw-email">${cfg.texts.emailLabel}</label>
-        <input id="wlw-email" class="wlw-input" type="email" name="email" required placeholder="seu@email" autocomplete="email" inputmode="email">
+        ${fields.join("\n")}
         <div class="wlw-consent">
           <input id="wlw-consent" type="checkbox" name="consent">
           <label for="wlw-consent" class="wlw-consent-label">${cfg.texts.consentLabel}</label>
@@ -165,6 +218,7 @@
       </div>
     </div>
   `;
+  };
 
   /**
    * Injeta o CSS base do widget apenas uma vez.
@@ -216,6 +270,15 @@
     merged.whatsappNumber = toDigits(merged.whatsappNumber);
     merged.texts = mergeDeep(DEFAULT_TEXTS, merged.texts || {});
     merged.theme = mergeDeep(DEFAULT_THEME, merged.theme || {});
+    merged.contactFields = mergeDeep(
+      DEFAULT_CONTACT_FIELDS,
+      merged.contactFields || {}
+    );
+    ["email", "phone"].forEach((field) => {
+      if (!merged.contactFields[field].enabled) {
+        merged.contactFields[field].required = false;
+      }
+    });
     if (!merged.whatsappNumber) {
       log("warn", "'whatsappNumber' é obrigatório para o funcionamento correto.");
     }
@@ -225,7 +288,7 @@
   /**
    * Lê dados persistidos localmente, se configurado.
    * @param {Required<typeof DEFAULT_CONFIG>} cfg
-   * @returns {{ nome?: string; email?: string; consent?: boolean } | null}
+   * @returns {{ nome?: string; email?: string; telefone?: string; consent?: boolean } | null}
    */
   const readStorage = (cfg) => {
     if (!cfg.storageKey || !global.localStorage) return null;
@@ -248,7 +311,7 @@
   /**
    * Persiste dados no storage local.
    * @param {Required<typeof DEFAULT_CONFIG>} cfg
-   * @param {{ nome?: string; email?: string; consent?: boolean }} data
+   * @param {{ nome?: string; email?: string; telefone?: string; consent?: boolean }} data
    */
   const writeStorage = (cfg, data) => {
     if (!cfg.storageKey || !global.localStorage) return;
@@ -343,6 +406,10 @@
         const emailInput = $("#wlw-email", this.modal);
         if (emailInput) emailInput.value = prefill.email;
       }
+      if (prefill.telefone) {
+        const phoneInput = $("#wlw-phone", this.modal);
+        if (phoneInput) phoneInput.value = prefill.telefone;
+      }
       if (typeof prefill.consent === "boolean") {
         const consentInput = $("#wlw-consent", this.modal);
         if (consentInput) consentInput.checked = prefill.consent;
@@ -369,6 +436,9 @@
       const emailInput = /** @type {HTMLInputElement|null} */ (
         $("#wlw-email", this.modal)
       );
+      const phoneInput = /** @type {HTMLInputElement|null} */ (
+        $("#wlw-phone", this.modal)
+      );
       const consentInput = /** @type {HTMLInputElement|null} */ (
         $("#wlw-consent", this.modal)
       );
@@ -379,6 +449,7 @@
 
       const name = nameInput?.value.trim() || "";
       const email = emailInput?.value.trim() || "";
+      const phone = phoneInput?.value.trim() || "";
       const consent = consentInput?.checked ? "Sim" : "Não";
 
       if (nameInput) {
@@ -393,9 +464,22 @@
           emailInput.setCustomValidity("");
         }
       }
+      if (phoneInput) {
+        phoneInput.value = phone;
+        if (typeof phoneInput.setCustomValidity === "function") {
+          phoneInput.setCustomValidity("");
+        }
+      }
 
       if (emailInput && email && !/^\S+@\S+\.\S+$/.test(email)) {
         emailInput.setCustomValidity(this.config.texts.invalidEmail);
+      }
+
+      if (phoneInput && phone) {
+        const digits = toDigits(phone);
+        if (digits.length < 8) {
+          phoneInput.setCustomValidity(this.config.texts.invalidPhone);
+        }
       }
 
       if (form && !form.reportValidity()) {
@@ -410,16 +494,23 @@
       writeStorage(this.config, {
         nome: name,
         email,
+        telefone: phone,
         consent: consent === "Sim",
       });
 
-      const waUrl = this._buildWhatsAppURL(name, email, consent === "Sim");
+      const waUrl = this._buildWhatsAppURL(
+        name,
+        email,
+        phone,
+        consent === "Sim"
+      );
       const popup = global.open(waUrl, "_blank");
 
       const payload = mergeDeep(
         {
           nome: name,
           email,
+          telefone: phone,
           consent,
           timestamp: new Date().toLocaleString("pt-BR", {
             timeZone: "America/Sao_Paulo",
@@ -471,10 +562,12 @@
      * @param {string} email
      * @param {boolean} consent
      */
-    _buildWhatsAppURL(name, email, consent) {
-      const message = `Olá! Meu nome é ${name}. Email: ${email}${
-        consent ? ". Aceitou receber comunicados." : ""
-      }`;
+    _buildWhatsAppURL(name, email, phone, consent) {
+      const parts = [`Olá! Meu nome é ${name}.`];
+      if (email) parts.push(`Email: ${email}`);
+      if (phone) parts.push(`Telefone: ${phone}`);
+      if (consent) parts.push("Aceitou receber comunicados.");
+      const message = parts.join(" ");
       const number = this.runtimeNumber || this.config.whatsappNumber;
       const encoded = encodeURIComponent(message);
       return `https://wa.me/${number}?text=${encoded}`;

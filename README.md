@@ -2,12 +2,12 @@ Este repositório contém um modelo de Google Apps Script para integrar uma plan
 =======
 # WhatsApp Lead Widget
 
-Widget pronto para uso que capta informações de leads (nome, e-mail, consentimento e dados extras) antes de abrir uma conversa no WhatsApp. O componente foi pensado para ser facilmente incorporado em qualquer site estático ou aplicação existente.
+Widget pronto para uso que capta informações de leads (nome, e-mail, telefone, consentimento e dados extras) antes de abrir uma conversa no WhatsApp. O componente foi pensado para ser facilmente incorporado em qualquer site estático ou aplicação existente.
 
 ## Recursos
 
 - Botão flutuante com modal personalizado.
-- Formulário com validação básica de nome e e-mail.
+- Formulário com campos de e-mail e telefone configuráveis.
 - Envio opcional dos dados para um endpoint (por exemplo, Google Apps Script).
 - Registro de evento no Google Analytics 4 (opcional).
 - Interceptação automática de links WhatsApp existentes na página.
@@ -31,13 +31,20 @@ Widget pronto para uso que capta informações de leads (nome, e-mail, consentim
     privacyPolicyUrl: "https://exemplo.com/politica",
     interceptLinks: true,
     enableGA4: true,
+    contactFields: {
+      email: { enabled: true, required: true },
+      phone: { enabled: false, required: true }
+    },
     texts: {
-      welcome: "Olá! Para continuarmos, informe seu e-mail :)",
-      nameLabel: "Nome *",
-      emailLabel: "Email *",
+      welcome: "Olá! Para continuarmos, informe seus dados :)",
+      nameLabel: "Nome",
+      emailLabel: "Email",
+      phoneLabel: "Telefone",
       consentLabel: "Aceito receber comunicados",
       submit: "Iniciar conversa",
-      required: "Por favor, preencha Nome e Email."
+      required: "Por favor, preencha os campos obrigatórios.",
+      emailPlaceholder: "nome@empresa.com",
+      phonePlaceholder: "(11) 98888-7777"
     },
     theme: {
       primary: "#036d5f",
@@ -61,6 +68,26 @@ Um exemplo completo está disponível em [`example/index.html`](example/index.ht
 ## Personalização
 
 - **Texts**: altere rótulos, mensagens e textos exibidos no modal.
+- **Campos de contato**: utilize `contactFields` para escolher entre capturar e-mail, telefone ou ambos, além de definir se cada um deve ser obrigatório.
+
+### Configurando obrigatoriedade dos campos
+
+O objeto `contactFields` controla tanto quais campos serão exibidos quanto a obrigatoriedade de cada um. O nome é sempre obrigatório e exibido; já e-mail e telefone podem ser habilitados ou não por meio da flag `enabled`. Quando um campo está desabilitado (`enabled: false`), a configuração `required` é ignorada automaticamente pelo widget.
+
+```js
+contactFields: {
+  email: { enabled: true, required: true },
+  phone: { enabled: true, required: true }
+}
+```
+
+Com essa estrutura você pode compor os cenários abaixo:
+
+- **Nome e e-mail obrigatórios**: `email.enabled = true`, `email.required = true`, `phone.enabled = false`.
+- **Nome e telefone obrigatórios**: `phone.enabled = true`, `phone.required = true`, `email.enabled = false`.
+- **Nome, e-mail e telefone**: habilite ambos; ajuste `required` individualmente (`true` para obrigatório, `false` para opcional).
+
+Caso queira deixar, por exemplo, o telefone opcional ao mesmo tempo em que mantém o campo visível, utilize `phone: { enabled: true, required: false }`. O formulário refletirá o status no rótulo (asterisco para obrigatórios) e só permitirá o envio quando os campos marcados como obrigatórios estiverem preenchidos.
 - **Theme**: personalize cores de destaque, hover e elementos do formulário.
 - **Interceptação de links**: habilite `interceptLinks: true` para que links `wa.me`, `api.whatsapp.com/send` e `whatsapp://send` abram o widget antes da conversa.
 - **Campos extras**: adicione pares chave/valor em `extraFields` para enviar metadados ao seu backend.
