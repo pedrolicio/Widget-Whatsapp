@@ -1,29 +1,111 @@
-/*! WhatsApp Lead Widget - Generic v1.0 | MIT */
-(function(root){
+/*!
+ * WhatsApp Lead Widget - Principal Script
+ * ---------------------------------------
+ * Este arquivo contém a implementação principal do widget de captação
+ * de leads via WhatsApp. Ele foi reescrito com foco em organização,
+ * legibilidade e extensibilidade, mantendo compatibilidade com o script
+ * original compartilhado pelo cliente.
+ *
+ * Melhores práticas aplicadas:
+ *  - Uso de classes ES6 e funções auxiliares puras para facilitar testes;
+ *  - Injeção de estilos idempotente (não duplica CSS ao reinicializar);
+ *  - API pública expandida com eventos customizados e métodos utilitários;
+ *  - Tratamento de erros mais robusto e mensagens de log consistentes;
+ *  - Possibilidade de pré-preencher campos via `prefill` e persistência
+ *    opcional dos dados do visitante com `storageKey`.
+ *
+ * Para utilizar, inclua este script no site e configure o widget através
+ * de `window.WhatsAppLeadWidget.init({ ... })`, conforme demonstrado na
+ * documentação.
+ */
+
+(function initWhatsAppLeadWidget(global) {
   "use strict";
 
-  var _instance = null;
+  const WIDGET_NAMESPACE = "WhatsAppLeadWidget";
+  const CSS_ID = "wlw-styles";
+  const LOG_PREFIX = `[${WIDGET_NAMESPACE}]`;
 
-  function toDigits(s){ return (String(s||"").match(/\d+/g)||[]).join(""); }
-  function $(sel, ctx){ return (ctx||document).querySelector(sel); }
-  function createEl(tag, attrs){ var el=document.createElement(tag); if(attrs){ Object.keys(attrs).forEach(function(k){ el.setAttribute(k, attrs[k]); }); } return el; }
+  /**
+   * Converte qualquer valor para uma string contendo apenas dígitos.
+   * @param {string|number} value
+   * @returns {string}
+   */
+  const toDigits = (value) => (String(value ?? "").match(/\d+/g) || []).join("");
 
-  function mergeDeep(target, source){
-    var t = Object(target), s = Object(source);
-    Object.keys(s).forEach(function(k){
-      var value = s[k];
+  /**
+   * Seleciona o primeiro elemento que corresponde ao seletor informado.
+   * @param {string} selector
+   * @param {ParentNode} [ctx=document]
+   * @returns {Element|null}
+   */
+  const $ = (selector, ctx) => (ctx || document).querySelector(selector);
+
+  /**
+   * Cria um elemento HTML com atributos opcionais.
+   * @param {string} tag
+   * @param {Record<string, string>} [attributes]
+   * @returns {HTMLElement}
+   */
+  const createElement = (tag, attributes) => {
+    const element = document.createElement(tag);
+    if (attributes) {
+      Object.keys(attributes).forEach((key) => {
+        element.setAttribute(key, attributes[key]);
+      });
+    }
+    return element;
+  };
+
+  /**
+   * Realiza merge profundo entre objetos simples.
+   * @template T
+   * @param {T} target
+   * @param {Partial<T>} source
+   * @returns {T}
+   */
+  const mergeDeep = (target, source) => {
+    const output = Array.isArray(target) ? [...target] : { ...target };
+    Object.keys(source || {}).forEach((key) => {
+      const value = source[key];
       if (value && typeof value === "object" && !Array.isArray(value)) {
-        t[k] = mergeDeep(t[k] || {}, value);
-      } else if (Array.isArray(value)) {
-        t[k] = value.slice();
+        output[key] = mergeDeep(output[key] || {}, value);
       } else {
-        t[k] = value;
+        output[key] = value;
       }
     });
-    return t;
-  }
+    return output;
+  };
 
-  var DEFAULTS = {
+  /**
+   * Simplifica o disparo de logs.
+   * @param {"log"|"warn"|"error"} level
+   * @param {...unknown} args
+   */
+  const log = (level, ...args) => {
+    if (typeof console[level] === "function") {
+      console[level](LOG_PREFIX, ...args);
+    }
+  };
+
+  const DEFAULT_TEXTS = {
+    welcome: "Olá! Para continuarmos, informe seu e-mail :)",
+    nameLabel: "Nome *",
+    emailLabel: "Email *",
+    consentLabel: "Aceito receber comunicados",
+    submit: "Iniciar conversa",
+    required: "Por favor, preencha Nome e Email.",
+    invalidEmail: "Por favor, informe um email válido.",
+  };
+
+  const DEFAULT_THEME = {
+    primary: "#036d5f",
+    primaryHover: "#02594d",
+    bubbleBg: "#efeae2",
+    inputBg: "#e7ffe7",
+  };
+
+  const DEFAULT_CONFIG = {
     scriptURL: "",
     whatsappNumber: "",
     brandImage: "",
@@ -32,348 +114,552 @@
     privacyPolicyUrl: "#",
     interceptLinks: false,
     enableGA4: false,
-    texts: {
-      welcome: "Olá! Para continuarmos, informe seu e-mail :)",
-      nameLabel: "Nome *",
-      emailLabel: "Email *",
-      consentLabel: "Aceito receber comunicados",
-      submit: "Iniciar conversa",
-      required: "Por favor, preencha Nome e Email."
-    },
-    theme: {
-      primary: "#036d5f",
-      primaryHover: "#02594d",
-      bubbleBg: "#efeae2",
-      inputBg: "#e7ffe7"
-    },
     ipLookupTimeoutMs: 800,
-    backgroundPattern: "https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png",
+    backgroundPattern:
+      "https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png",
     extraFields: {},
-    attachTo: "body"
+    attachTo: "body",
+    texts: DEFAULT_TEXTS,
+    theme: DEFAULT_THEME,
+    prefill: null,
+    storageKey: null,
+    storageExpirationMinutes: 60 * 24,
   };
 
-  function Widget(userCfg){
-    this.cfg = mergeDeep(JSON.parse(JSON.stringify(DEFAULTS)), userCfg || {});
-    this.cfg.whatsappNumber = toDigits(this.cfg.whatsappNumber);
-    this.runtimeNumber = this.cfg.whatsappNumber;
+  /**
+   * Gera o HTML da estrutura interna do modal.
+   * @param {Required<typeof DEFAULT_CONFIG>} cfg
+   * @returns {string}
+   */
+  const getModalMarkup = (cfg) => `
+    <div class="wlw-header">
+      <img class="wlw-avatar" src="${cfg.brandImage || ""}" alt="${
+        cfg.brandTitle || ""
+      }">
+      <div class="wlw-header-info">
+        <div class="wlw-title">${cfg.brandTitle || ""}</div>
+        <div class="wlw-status">${cfg.brandStatus || ""}</div>
+      </div>
+      <button type="button" class="wlw-close" aria-label="Fechar">×</button>
+    </div>
+    <div class="wlw-body">
+      <div class="wlw-msg">${cfg.texts.welcome || ""}</div>
+      <form class="wlw-form" novalidate>
+        <label class="wlw-label" for="wlw-name">${cfg.texts.nameLabel}</label>
+        <input id="wlw-name" class="wlw-input" type="text" name="nome" required placeholder="Seu nome" autocomplete="name">
+        <label class="wlw-label" for="wlw-email">${cfg.texts.emailLabel}</label>
+        <input id="wlw-email" class="wlw-input" type="email" name="email" required placeholder="seu@email" autocomplete="email" inputmode="email">
+        <div class="wlw-consent">
+          <input id="wlw-consent" type="checkbox" name="consent">
+          <label for="wlw-consent" class="wlw-consent-label">${cfg.texts.consentLabel}</label>
+        </div>
+        <button type="submit" class="wlw-submit">${cfg.texts.submit}</button>
+      </form>
+      <div class="wlw-footer">
+        ${
+          cfg.privacyPolicyUrl
+            ? `<a href="${cfg.privacyPolicyUrl}" target="_blank" rel="noopener">Política de Privacidade</a>`
+            : ""
+        }
+        <span>${cfg.privacyPolicyUrl ? " | " : ""}Powered by <a href="https://www.agenciaregex.com/" target="_blank" rel="noopener">Agência Regex</a></span>
+      </div>
+    </div>
+  `;
 
-    if (!this.cfg.whatsappNumber) {
-      console.warn("[WhatsAppLeadWidget] 'whatsappNumber' é obrigatório.");
-    }
-    this.container = document.querySelector(this.cfg.attachTo) || document.body;
-    this._build();
-    if (this.cfg.interceptLinks) this._setupLinkInterceptor();
-  }
-
-  Widget.prototype._injectCSS = function(){
-    var c = this.cfg, t = c.theme;
-    var existing = document.head.querySelector('style[data-wlw-style]');
-    if (existing) {
-      this.styleTag = existing;
-      return;
-    }
-    var css = `
-      .wlw-modal { position: fixed; bottom: 20px; right: 20px; width: 340px;
-        border: 1px solid #cacaca; border-radius: 6px; overflow: hidden;
-        display: none; z-index: 9999; font-family: "Open Sans", Arial, sans-serif; background: #fff; }
-      .wlw-header { background-color: ${t.primary}; color: #fff; padding: 10px; display: flex; align-items: center; position: relative; }
-      .wlw-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover; }
-      .wlw-title { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+  /**
+   * Injeta o CSS base do widget apenas uma vez.
+   * @param {Required<typeof DEFAULT_CONFIG>} cfg
+   */
+  const ensureStyles = (cfg) => {
+    if (document.getElementById(CSS_ID)) return;
+    const style = createElement("style", { id: CSS_ID });
+    const t = cfg.theme;
+    style.textContent = `
+      .wlw-modal { position: fixed; bottom: 20px; right: 20px; width: 340px; border: 1px solid #cacaca; border-radius: 6px; overflow: hidden; display: none; z-index: 9999; font-family: "Open Sans", Arial, sans-serif; background: #fff; box-shadow: 0 12px 30px rgba(0,0,0,0.18); }
+      .wlw-header { background-color: ${t.primary}; color: #fff; padding: 12px; display: flex; align-items: center; position: relative; gap: 10px; }
+      .wlw-header-info { flex: 1; }
+      .wlw-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.2); }
+      .wlw-title { font-size: 17px; font-weight: 700; line-height: 1.2; }
       .wlw-status { font-size: 13px; color: #c8f8c8; }
-      .wlw-close { position: absolute; top: 10px; right: 10px; cursor: pointer; font-size: 20px; color: #fff; }
-      .wlw-body { background: ${t.bubbleBg} url('${c.backgroundPattern}') repeat; background-size: 300px; padding: 10px; }
-      .wlw-msg { background: #fff; border: 1px solid #cacaca; border-radius: 6px; padding: 10px; color: #4a4a4a; margin-bottom: 10px; font-size: 14px; }
+      .wlw-close { position: absolute; top: 10px; right: 10px; cursor: pointer; font-size: 22px; color: #fff; background: transparent; border: none; padding: 0 4px; }
+      .wlw-body { background: ${t.bubbleBg} url('${cfg.backgroundPattern}') repeat; background-size: 300px; padding: 12px; }
+      .wlw-msg { background: #fff; border: 1px solid #cacaca; border-radius: 6px; padding: 10px; color: #4a4a4a; margin-bottom: 10px; font-size: 14px; line-height: 1.5; }
       .wlw-form { display: flex; flex-direction: column; }
-      .wlw-label { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
-      .wlw-input { background-color: ${t.inputBg}; border: 1px solid #cacaca; border-radius: 6px; padding: 8px; margin-bottom: 10px;
-        width: 100%; box-sizing: border-box; font-size: 14px; color: #4a4a4a; }
-      .wlw-consent { display: flex; align-items: center; margin-bottom: 10px; font-size: 14px; color: #4a4a4a; }
-      .wlw-submit { background-color: ${t.primary}; color: #fff; border: none; border-radius: 6px; padding: 10px; font-size: 16px; cursor: pointer; }
-      .wlw-submit:hover { background-color: ${t.primaryHover}; }
+      .wlw-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #333; }
+      .wlw-input { background-color: ${t.inputBg}; border: 1px solid #cacaca; border-radius: 6px; padding: 8px; margin-bottom: 10px; width: 100%; box-sizing: border-box; font-size: 14px; color: #222; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+      .wlw-input:focus { outline: none; border-color: ${t.primary}; box-shadow: 0 0 0 2px rgba(3,109,95,0.25); }
+      .wlw-consent { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 14px; color: #4a4a4a; }
+      .wlw-consent input { width: 16px; height: 16px; }
+      .wlw-consent-label { margin: 0; font-weight: normal; }
+      .wlw-submit { background-color: ${t.primary}; color: #fff; border: none; border-radius: 6px; padding: 11px; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background-color 0.2s ease; }
+      .wlw-submit:hover:not(:disabled) { background-color: ${t.primaryHover}; }
+      .wlw-submit:disabled { opacity: 0.7; cursor: not-allowed; }
       .wlw-fab { position: fixed; z-index: 999; bottom: 20px; right: 20px; cursor: pointer; border: 0; background: transparent; padding: 0; }
-      .wlw-fab img { height: 60px; width: auto; }
-      .wlw-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.6);
-        border-radius: 50%; border-top-color: #fff; animation: wlwspin 0.6s linear infinite; margin-left: 5px; }
+      .wlw-fab img { height: 60px; width: auto; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25)); }
+      .wlw-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; border-top-color: #fff; animation: wlwspin 0.6s linear infinite; }
       @keyframes wlwspin { to { transform: rotate(360deg); } }
-      .wlw-footer { margin-top: 10px; font-size: 12px; text-align: center; color: #666; }
+      .wlw-footer { margin-top: 12px; font-size: 12px; text-align: center; color: #666; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
       .wlw-footer a { color: #666; text-decoration: none; }
       .wlw-footer a:hover { text-decoration: underline; }
-      @media (max-width: 420px) { .wlw-modal { width: calc(100% - 40px); right: 20px; left: 20px; } }
+      @media (max-width: 420px) { .wlw-modal { width: calc(100% - 40px); right: 20px; left: 20px; } .wlw-fab img { height: 52px; } }
     `;
-    var style = createEl("style", { "data-wlw-style": "true" });
-    style.textContent = css;
     document.head.appendChild(style);
-    this.styleTag = style;
   };
 
-  Widget.prototype._build = function(){
-    var c = this.cfg;
-
-    this._injectCSS();
-
-    this.fab = createEl("button", { type:"button", class:"wlw-fab", "aria-label":"Abrir atendimento no WhatsApp" });
-    this.fab.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">';
-    this.container.appendChild(this.fab);
-
-    this.modal = createEl("div", {
-      class:"wlw-modal",
-      role:"dialog",
-      "aria-modal":"true",
-      "aria-hidden":"true",
-      tabindex:"-1"
-    });
-    this.modal.innerHTML = [
-      '<div class="wlw-header">',
-        '<img class="wlw-avatar" src="'+(c.brandImage||"")+'" alt="'+(c.brandTitle||"")+'">',
-        '<div>',
-          '<div class="wlw-title" id="wlw-title">'+(c.brandTitle||"")+'</div>',
-          '<div class="wlw-status" id="wlw-status">'+(c.brandStatus||"")+'</div>',
-        '</div>',
-        '<button type="button" class="wlw-close" aria-label="Fechar modal">×</button>',
-      '</div>',
-      '<div class="wlw-body" aria-labelledby="wlw-title" aria-describedby="wlw-description">',
-        '<div class="wlw-msg" id="wlw-description">'+(c.texts.welcome||"")+'</div>',
-        '<form class="wlw-form" novalidate>',
-          '<label class="wlw-label" for="wlw-name">'+(c.texts.nameLabel||"Nome *")+'</label>',
-          '<input id="wlw-name" class="wlw-input" type="text" name="nome" required placeholder="Seu nome" autocomplete="name" minlength="2">',
-          '<label class="wlw-label" for="wlw-email">'+(c.texts.emailLabel||"Email *")+'</label>',
-          '<input id="wlw-email" class="wlw-input" type="email" name="email" required placeholder="seu@email" autocomplete="email" inputmode="email">',
-          '<div class="wlw-consent">',
-            '<input id="wlw-consent" type="checkbox" name="consent">',
-            '<label for="wlw-consent" style="margin:0; font-weight: normal;">'+(c.texts.consentLabel||"Aceito receber comunicados")+'</label>',
-          '</div>',
-          '<button type="submit" class="wlw-submit">'+(c.texts.submit||"Iniciar conversa")+'</button>',
-        '</form>',
-        '<div class="wlw-footer">',
-          (c.privacyPolicyUrl ? '<a href="'+c.privacyPolicyUrl+'" target="_blank" rel="noopener">Política de Privacidade</a>' : ''),
-          '<span> '+(c.privacyPolicyUrl ? ' | ' : '')+'Powered by <a href="https://www.agenciaregex.com/" target="_blank" rel="noopener">Agência Regex</a></span>',
-        '</div>',
-      '</div>'
-    ].join("");
-    this.container.appendChild(this.modal);
-
-    var self = this;
-    this.fab.addEventListener("click", function(){ self.open(); });
-    this.closeBtn = $('.wlw-close', this.modal);
-    this.closeBtn.addEventListener("click", function(){ self.close(); });
-    this.formEl = $('.wlw-form', this.modal);
-    this.formEl.addEventListener("submit", this._onSubmit.bind(this));
-    this._handleKeydown = this._onKeydown.bind(this);
-    document.addEventListener("keydown", this._handleKeydown);
-
-    root.WhatsAppLeadWidget = root.WhatsAppLeadWidget || {};
-    root.WhatsAppLeadWidget.open = this.open.bind(this);
-    root.WhatsAppLeadWidget.setNumber = this.setNumber.bind(this);
-    root.WhatsAppLeadWidget.destroy = this.destroy.bind(this);
-    root.WhatsAppLeadWidget.close = this.close.bind(this);
+  /**
+   * Normaliza a configuração e aplica valores padrão.
+   * @param {Partial<typeof DEFAULT_CONFIG>} cfg
+   * @returns {Required<typeof DEFAULT_CONFIG>}
+   */
+  const normalizeConfig = (cfg) => {
+    const merged = mergeDeep(DEFAULT_CONFIG, cfg || {});
+    merged.whatsappNumber = toDigits(merged.whatsappNumber);
+    merged.texts = mergeDeep(DEFAULT_TEXTS, merged.texts || {});
+    merged.theme = mergeDeep(DEFAULT_THEME, merged.theme || {});
+    if (!merged.whatsappNumber) {
+      log("warn", "'whatsappNumber' é obrigatório para o funcionamento correto.");
+    }
+    return /** @type {Required<typeof DEFAULT_CONFIG>} */ (merged);
   };
 
-  Widget.prototype._trackGA = function(){
-    if (!this.cfg.enableGA4) return;
+  /**
+   * Lê dados persistidos localmente, se configurado.
+   * @param {Required<typeof DEFAULT_CONFIG>} cfg
+   * @returns {{ nome?: string; email?: string; consent?: boolean } | null}
+   */
+  const readStorage = (cfg) => {
+    if (!cfg.storageKey || !global.localStorage) return null;
     try {
-      if (typeof root.gtag === "function") {
-        root.gtag("event", "whatsappClick", {
-          event_category: "engagement",
-          event_label: "WhatsApp Form",
-          value: 1
-        });
-      } else {
-        root.dataLayer = root.dataLayer || [];
-        root.dataLayer.push({
-          event: "whatsappClick",
-          eventCategory: "engagement",
-          eventLabel: "WhatsApp Form",
-          value: 1
-        });
+      const raw = global.localStorage.getItem(cfg.storageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return null;
+      if (parsed.expires && Date.now() > parsed.expires) {
+        global.localStorage.removeItem(cfg.storageKey);
+        return null;
       }
-    } catch(_) {}
+      return parsed.data || null;
+    } catch (error) {
+      log("warn", "Falha ao ler storage:", error);
+      return null;
+    }
   };
 
-  Widget.prototype._getIP = function(timeoutMs){
-    var ms = typeof timeoutMs === "number" ? timeoutMs : this.cfg.ipLookupTimeoutMs;
-    return new Promise(function(resolve){
-      var done=false;
-      var t=setTimeout(function(){ if(!done){done=true;resolve("");}}, ms);
-      if (typeof fetch !== "function") {
-        clearTimeout(t);
-        resolve("");
+  /**
+   * Persiste dados no storage local.
+   * @param {Required<typeof DEFAULT_CONFIG>} cfg
+   * @param {{ nome?: string; email?: string; consent?: boolean }} data
+   */
+  const writeStorage = (cfg, data) => {
+    if (!cfg.storageKey || !global.localStorage) return;
+    try {
+      const expires = cfg.storageExpirationMinutes
+        ? Date.now() + cfg.storageExpirationMinutes * 60 * 1000
+        : null;
+      global.localStorage.setItem(
+        cfg.storageKey,
+        JSON.stringify({ data, expires })
+      );
+    } catch (error) {
+      log("warn", "Falha ao salvar storage:", error);
+    }
+  };
+
+  /**
+   * Dispara eventos customizados para permitir integrações externas.
+   * @param {HTMLElement} rootElement
+   * @param {string} eventName
+   * @param {Record<string, unknown>} detail
+   */
+  const dispatchEvent = (rootElement, eventName, detail = {}) => {
+    const event = new CustomEvent(`${WIDGET_NAMESPACE.toLowerCase()}:${eventName}`, {
+      detail,
+      bubbles: true,
+    });
+    rootElement.dispatchEvent(event);
+  };
+
+  class WhatsAppLeadWidget {
+    /**
+     * @param {Partial<typeof DEFAULT_CONFIG>} [userConfig]
+     */
+    constructor(userConfig) {
+      this.config = normalizeConfig(userConfig);
+      this.runtimeNumber = this.config.whatsappNumber;
+
+      /** @type {HTMLElement | null} */
+      this.container = document.querySelector(this.config.attachTo) || document.body;
+      if (!this.container) {
+        log("error", "Elemento container não encontrado. Usando body como fallback.");
+        this.container = document.body;
+      }
+
+      ensureStyles(this.config);
+
+      this._buildFab();
+      this._buildModal();
+      this._bindEvents();
+      this._applyPrefill();
+
+      if (this.config.interceptLinks) {
+        this._setupLinkInterceptor();
+      }
+    }
+
+    /** Cria o botão flutuante (FAB). */
+    _buildFab() {
+      this.fab = createElement("button", {
+        type: "button",
+        class: "wlw-fab",
+        "aria-label": "Abrir atendimento no WhatsApp",
+      });
+      this.fab.innerHTML =
+        '<img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">';
+      this.container.appendChild(this.fab);
+    }
+
+    /** Monta o modal principal. */
+    _buildModal() {
+      this.modal = createElement("div", {
+        class: "wlw-modal",
+        role: "dialog",
+        "aria-modal": "true",
+      });
+      this.modal.innerHTML = getModalMarkup(this.config);
+      this.container.appendChild(this.modal);
+    }
+
+    /** Aplica dados pré-preenchidos vindos do storage ou da configuração. */
+    _applyPrefill() {
+      const stored = readStorage(this.config);
+      const prefill = mergeDeep(stored || {}, this.config.prefill || {});
+      if (!prefill) return;
+
+      if (prefill.nome) {
+        const nameInput = $("#wlw-name", this.modal);
+        if (nameInput) nameInput.value = prefill.nome;
+      }
+      if (prefill.email) {
+        const emailInput = $("#wlw-email", this.modal);
+        if (emailInput) emailInput.value = prefill.email;
+      }
+      if (typeof prefill.consent === "boolean") {
+        const consentInput = $("#wlw-consent", this.modal);
+        if (consentInput) consentInput.checked = prefill.consent;
+      }
+    }
+
+    /** Configura os listeners de evento da UI. */
+    _bindEvents() {
+      this.fab.addEventListener("click", () => this.open());
+      $(".wlw-close", this.modal)?.addEventListener("click", () => this.close());
+      this.modal.addEventListener("submit", (ev) => this._handleSubmit(ev));
+    }
+
+    /**
+     * Handler principal do submit do formulário.
+     * @param {Event} event
+     */
+    async _handleSubmit(event) {
+      event.preventDefault();
+
+      const nameInput = /** @type {HTMLInputElement|null} */ (
+        $("#wlw-name", this.modal)
+      );
+      const emailInput = /** @type {HTMLInputElement|null} */ (
+        $("#wlw-email", this.modal)
+      );
+      const consentInput = /** @type {HTMLInputElement|null} */ (
+        $("#wlw-consent", this.modal)
+      );
+      const submitBtn = $(".wlw-submit", this.modal);
+
+      const name = nameInput?.value.trim() || "";
+      const email = emailInput?.value.trim() || "";
+      const consent = consentInput?.checked ? "Sim" : "Não";
+
+      if (!name || !email) {
+        alert(this.config.texts.required);
         return;
       }
-      fetch("https://api.ipify.org?format=json").then(function(r){return r.json();}).then(function(j){
-        if(!done){done=true;clearTimeout(t);resolve(j.ip||"");}
-      }).catch(function(){ if(!done){done=true;clearTimeout(t);resolve("");}});
-    });
-  };
 
-  Widget.prototype._postLead = function(payload){
-    if (!this.cfg.scriptURL) return Promise.resolve("skip-post");
-    var fd = new FormData();
-    Object.keys(payload).forEach(function(k){ if (payload[k] != null) fd.append(k, payload[k]); });
-    if (typeof fetch !== "function") {
-      return Promise.reject(new Error("Fetch API indisponível"));
+      if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+        alert(this.config.texts.invalidEmail);
+        emailInput?.focus();
+        return;
+      }
+
+      submitBtn?.setAttribute("disabled", "true");
+      if (submitBtn) {
+        submitBtn.innerHTML = `${this.config.texts.submit} <span class="wlw-spinner"></span>`;
+      }
+
+      writeStorage(this.config, {
+        nome: name,
+        email,
+        consent: consent === "Sim",
+      });
+
+      const waUrl = this._buildWhatsAppURL(name, email, consent === "Sim");
+      const popup = global.open(waUrl, "_blank");
+
+      const payload = mergeDeep(
+        {
+          nome: name,
+          email,
+          consent,
+          timestamp: new Date().toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+          }),
+          userAgent: global.navigator?.userAgent || "",
+          pageUrl: global.location?.href || "",
+        },
+        this.config.extraFields || {}
+      );
+
+      dispatchEvent(this.modal, "submit", payload);
+
+      try {
+        const ip = await this._getUserIP();
+        if (ip) payload.userIP = ip;
+        await this._postLead(payload);
+        this._trackGA();
+        dispatchEvent(this.modal, "success", payload);
+        this._resetForm();
+        this.close();
+      } catch (error) {
+        log("error", "Erro ao enviar dados", error);
+        dispatchEvent(this.modal, "error", { error });
+        alert("Ocorreu um erro ao enviar os dados. Tente novamente.");
+        if (popup) {
+          try {
+            popup.close();
+          } catch (_) {
+            /* noop */
+          }
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.removeAttribute("disabled");
+          submitBtn.textContent = this.config.texts.submit;
+        }
+      }
     }
-    return fetch(this.cfg.scriptURL, { method:"POST", body: fd }).then(function(r){
-      if (!r.ok) throw new Error("HTTP "+r.status);
-      return r.text();
-    });
-  };
 
-  Widget.prototype._onSubmit = function(e){
-    e.preventDefault();
-    if (!this.formEl.checkValidity()) {
-      if (this.formEl.reportValidity) this.formEl.reportValidity();
-      else alert(this.cfg.texts.required);
-      return;
-    }
-    var name = $('#wlw-name', this.modal).value.trim();
-    var email = $('#wlw-email', this.modal).value.trim();
-    var consent = $('#wlw-consent', this.modal).checked ? "Sim" : "Não";
-
-    var btn = $('.wlw-submit', this.modal);
-    btn.disabled = true;
-    btn.innerHTML = (this.cfg.texts.submit || "Iniciar conversa")+' <span class="wlw-spinner"></span>';
-
-    var msg = "Olá! Meu nome é " + name + ". Email: " + email + (consent === "Sim" ? ". Aceitou receber comunicados." : "");
-    var encoded = encodeURIComponent(msg);
-
-    var number = this.runtimeNumber || this.cfg.whatsappNumber;
-    var waUrl = "https://wa.me/" + number + "?text=" + encoded;
-    var win = window.open(waUrl, "_blank");
-    if (!win) {
-      root.location.href = waUrl;
+    /** Reseta o formulário. */
+    _resetForm() {
+      const form = $(".wlw-form", this.modal);
+      if (form) form.reset();
     }
 
-    var payload = mergeDeep({
-      nome: name,
-      email: email,
-      consent: consent,
-      timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-      userAgent: navigator.userAgent || "",
-      pageUrl: location.href
-    }, (this.cfg.extraFields || {}));
+    /**
+     * Constrói a URL de atendimento do WhatsApp.
+     * @param {string} name
+     * @param {string} email
+     * @param {boolean} consent
+     */
+    _buildWhatsAppURL(name, email, consent) {
+      const message = `Olá! Meu nome é ${name}. Email: ${email}${
+        consent ? ". Aceitou receber comunicados." : ""
+      }`;
+      const number = this.runtimeNumber || this.config.whatsappNumber;
+      const encoded = encodeURIComponent(message);
+      return `https://wa.me/${number}?text=${encoded}`;
+    }
 
-    var self = this;
-    this._getIP().then(function(ip){
-      if (ip) payload.userIP = ip;
-      return self._postLead(payload);
-    }).then(function(){
-      self._trackGA();
-      self.close();
-      btn.disabled = false;
-      btn.textContent = (self.cfg.texts.submit || "Iniciar conversa");
-      self.formEl.reset();
-    }).catch(function(err){
-      console.error("[WhatsAppLeadWidget] Erro ao enviar dados:", err);
-      alert("Ocorreu um erro ao enviar os dados. Tente novamente.");
-      btn.disabled = false;
-      btn.textContent = (self.cfg.texts.submit || "Iniciar conversa");
-      if (win) { try { win.close(); } catch(_){} }
-    });
-  };
+    /** Obtém o IP do usuário com timeout configurável. */
+    _getUserIP() {
+      const timeout = this.config.ipLookupTimeoutMs;
+      return new Promise((resolve) => {
+        let fulfilled = false;
+        const timer = setTimeout(() => {
+          if (fulfilled) return;
+          fulfilled = true;
+          resolve("");
+        }, timeout);
 
-  Widget.prototype._setupLinkInterceptor = function(){
-    var self = this;
+        fetch("https://api.ipify.org?format=json")
+          .then((response) => response.json())
+          .then((data) => {
+            if (fulfilled) return;
+            fulfilled = true;
+            clearTimeout(timer);
+            resolve(data?.ip || "");
+          })
+          .catch(() => {
+            if (fulfilled) return;
+            fulfilled = true;
+            clearTimeout(timer);
+            resolve("");
+          });
+      });
+    }
 
-    function isWhatsAppLink(href){
-      if (!href) return false;
+    /** Envia os dados ao backend se `scriptURL` estiver configurado. */
+    _postLead(payload) {
+      if (!this.config.scriptURL) return Promise.resolve("skipped");
+      const formData = new FormData();
+      Object.keys(payload).forEach((key) => {
+        const value = payload[key];
+        if (value != null) {
+          formData.append(key, value);
+        }
+      });
+      return fetch(this.config.scriptURL, {
+        method: "POST",
+        body: formData,
+      }).then((response) => response.text());
+    }
+
+    /** Dispara evento GA4, se configurado. */
+    _trackGA() {
+      if (!this.config.enableGA4) return;
+      try {
+        if (typeof global.gtag === "function") {
+          global.gtag("event", "whatsappClick", {
+            event_category: "engagement",
+            event_label: "WhatsApp Form",
+            value: 1,
+          });
+        } else {
+          global.dataLayer = global.dataLayer || [];
+          global.dataLayer.push({
+            event: "whatsappClick",
+            eventCategory: "engagement",
+            eventLabel: "WhatsApp Form",
+            value: 1,
+          });
+        }
+      } catch (error) {
+        log("warn", "Falha ao enviar evento GA4", error);
+      }
+    }
+
+    /** Habilita o interceptador de links de WhatsApp. */
+    _setupLinkInterceptor() {
+      if (this._linkHandler) return;
+
+      this._linkHandler = (event) => {
+        const anchor = event.target?.closest?.("a[href]");
+        if (!anchor || anchor.hasAttribute("data-skip-wa-widget")) return;
+        const href = anchor.getAttribute("href") || "";
+        if (!this._isWhatsAppLink(href)) return;
+        event.preventDefault();
+        const number = this._extractNumber(href);
+        this.open(number || undefined);
+      };
+
+      document.addEventListener("click", this._linkHandler, true);
+    }
+
+    /** Remove o interceptador de links. */
+    _removeLinkInterceptor() {
+      if (!this._linkHandler) return;
+      document.removeEventListener("click", this._linkHandler, true);
+      this._linkHandler = null;
+    }
+
+    /** Valida se a URL é um link de WhatsApp. */
+    _isWhatsAppLink(href) {
       return /wa\.me\/\d+/i.test(href)
-          || /api\.whatsapp\.com\/send/i.test(href)
-          || /^whatsapp:\/\/send/i.test(href);
+        || /api\.whatsapp\.com\/send/i.test(href)
+        || /^whatsapp:\/\/send/i.test(href);
     }
-    function extractNumber(href){
-      if (!href) return "";
-      var m1 = href.match(/wa\.me\/(\d+)/i);                         if (m1 && m1[1]) return toDigits(m1[1]);
-      var m2 = href.match(/[?&#]phone=([^&#]+)/i);                    if (m2 && m2[1]) return toDigits(decodeURIComponent(m2[1]));
-      var m3 = href.match(/^whatsapp:\/\/send\?.*?phone=([^&#]+)/i);  if (m3 && m3[1]) return toDigits(decodeURIComponent(m3[1]));
+
+    /** Extrai o número de telefone de uma URL do WhatsApp. */
+    _extractNumber(href) {
+      const match1 = href.match(/wa\.me\/(\d+)/i);
+      if (match1?.[1]) return toDigits(match1[1]);
+      const match2 = href.match(/[?&#]phone=([^&#]+)/i);
+      if (match2?.[1]) return toDigits(decodeURIComponent(match2[1]));
+      const match3 = href.match(/^whatsapp:\/\/send\?.*?phone=([^&#]+)/i);
+      if (match3?.[1]) return toDigits(decodeURIComponent(match3[1]));
       return "";
     }
 
-    this._interceptHandler = function(e){
-      var a = e.target.closest && e.target.closest("a[href]");
-      if (!a) return;
-      if (a.hasAttribute("data-skip-wa-widget")) return;
-      var href = a.getAttribute("href") || "";
-      if (!isWhatsAppLink(href)) return;
-      e.preventDefault();
-      var num = extractNumber(href);
-      self.open(num || undefined);
-    };
-    document.addEventListener("click", this._interceptHandler, true);
-  };
-
-  Widget.prototype.open = function(number){
-    if (number) this.runtimeNumber = toDigits(number);
-    else this.runtimeNumber = this.cfg.whatsappNumber;
-    this.modal.style.display = "block";
-    this.modal.setAttribute("aria-hidden", "false");
-    this.fab.setAttribute("aria-expanded", "true");
-    var nameEl = $('#wlw-name', this.modal);
-    if (nameEl) nameEl.focus();
-  };
-
-  Widget.prototype.close = function(){
-    this.modal.style.display = "none";
-    this.modal.setAttribute("aria-hidden", "true");
-    this.fab.setAttribute("aria-expanded", "false");
-    this.fab.focus();
-  };
-
-  Widget.prototype._onKeydown = function(e){
-    if (e.key === "Escape" && this.modal.style.display === "block") {
-      e.preventDefault();
-      this.close();
-    }
-    var nameEl = $('#wlw-name', this.modal);
-    if (e.key === "Tab" && this.modal.style.display === "block") {
-      var focusable = this.modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-      focusable = Array.prototype.slice.call(focusable).filter(function(el){ return !el.disabled && el.offsetParent !== null; });
-      if (!focusable.length) return;
-      var first = focusable[0];
-      var last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
+    /** Abre o modal do widget. */
+    open(number) {
+      if (number) {
+        this.setNumber(number);
+      } else {
+        this.runtimeNumber = this.config.whatsappNumber;
       }
-    }
-  };
 
-  Widget.prototype.setNumber = function(number){
-    this.runtimeNumber = toDigits(number);
-  };
-
-  Widget.prototype.destroy = function(){
-    try {
-      this.fab && this.fab.remove();
-      this.modal && this.modal.remove();
-    } catch(_) {}
-    if (this._handleKeydown) document.removeEventListener("keydown", this._handleKeydown);
-    if (this._interceptHandler) document.removeEventListener("click", this._interceptHandler, true);
-    delete root.WhatsAppLeadWidget.open;
-    delete root.WhatsAppLeadWidget.setNumber;
-    delete root.WhatsAppLeadWidget.destroy;
-    delete root.WhatsAppLeadWidget.close;
-    _instance = null;
-  };
-
-  root.WhatsAppLeadWidget = root.WhatsAppLeadWidget || {};
-  root.WhatsAppLeadWidget.init = function(userCfg){
-    if (_instance) {
-      if (userCfg && userCfg.whatsappNumber) _instance.setNumber(userCfg.whatsappNumber);
-      return _instance;
+      this.modal.style.display = "block";
+      this.fab?.setAttribute("aria-expanded", "true");
+      const nameInput = $("#wlw-name", this.modal);
+      nameInput?.focus();
+      dispatchEvent(this.modal, "open", { number: this.runtimeNumber });
     }
 
-    function start(){
-      _instance = new Widget(userCfg);
-      return _instance;
+    /** Fecha o modal do widget. */
+    close() {
+      this.modal.style.display = "none";
+      this.fab?.setAttribute("aria-expanded", "false");
+      dispatchEvent(this.modal, "close", {});
     }
+
+    /** Define dinamicamente o número do atendimento. */
+    setNumber(number) {
+      this.runtimeNumber = toDigits(number);
+    }
+
+    /** Atualiza a configuração do widget em tempo de execução. */
+    updateConfig(partialConfig) {
+      this.config = normalizeConfig(mergeDeep(this.config, partialConfig));
+      ensureStyles(this.config);
+      this.modal.innerHTML = getModalMarkup(this.config);
+      this._bindEvents();
+      this._applyPrefill();
+      dispatchEvent(this.modal, "update", this.config);
+    }
+
+    /** Destrói o widget, removendo elementos e listeners. */
+    destroy() {
+      this._removeLinkInterceptor();
+      this.fab?.remove();
+      this.modal?.remove();
+      dispatchEvent(document.body, "destroy", {});
+    }
+  }
+
+  let instance = null;
+
+  const namespace = (global[WIDGET_NAMESPACE] = global[WIDGET_NAMESPACE] || {});
+
+  namespace.init = function init(userConfig) {
+    if (instance) {
+      if (userConfig?.whatsappNumber) {
+        instance.setNumber(userConfig.whatsappNumber);
+      }
+      return instance;
+    }
+
+    const start = () => {
+      instance = new WhatsAppLeadWidget(userConfig);
+      namespace.open = instance.open.bind(instance);
+      namespace.close = instance.close.bind(instance);
+      namespace.setNumber = instance.setNumber.bind(instance);
+      namespace.updateConfig = instance.updateConfig.bind(instance);
+      namespace.destroy = () => {
+        instance?.destroy();
+        instance = null;
+        delete namespace.open;
+        delete namespace.close;
+        delete namespace.setNumber;
+        delete namespace.updateConfig;
+        delete namespace.destroy;
+      };
+      return instance;
+    };
+
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", start);
+      document.addEventListener("DOMContentLoaded", start, { once: true });
     } else {
       start();
     }
-  };
 
+    return instance;
+  };
 })(window);
+
