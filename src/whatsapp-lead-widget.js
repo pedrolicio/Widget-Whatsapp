@@ -564,7 +564,11 @@
         const ip = await this._getUserIP();
         if (ip) payload.userIP = ip;
         await this._postLead(payload);
-        this._trackGA();
+        this._trackGA("whatsappClick", {
+          event_category: "engagement",
+          event_label: "WhatsApp Form",
+          value: 1,
+        });
         dispatchEvent(this.modal, "success", payload);
         this._resetForm();
         this.close();
@@ -655,23 +659,23 @@
     }
 
     /** Dispara evento GA4, se configurado. */
-    _trackGA() {
-      if (!this.config.enableGA4) return;
+    _trackGA(eventName, params = {}) {
+      if (!this.config.enableGA4 || !eventName) return;
       try {
         if (typeof global.gtag === "function") {
-          global.gtag("event", "whatsappClick", {
-            event_category: "engagement",
-            event_label: "WhatsApp Form",
-            value: 1,
-          });
+          global.gtag("event", eventName, params);
         } else {
+          const normalizeKey = (key) =>
+            key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+          const dataLayerParams = Object.keys(params).reduce(
+            (acc, key) => ({
+              ...acc,
+              [normalizeKey(key)]: params[key],
+            }),
+            { event: eventName }
+          );
           global.dataLayer = global.dataLayer || [];
-          global.dataLayer.push({
-            event: "whatsappClick",
-            eventCategory: "engagement",
-            eventLabel: "WhatsApp Form",
-            value: 1,
-          });
+          global.dataLayer.push(dataLayerParams);
         }
       } catch (error) {
         log("warn", "Falha ao enviar evento GA4", error);
@@ -733,6 +737,12 @@
       const nameInput = $("#wlw-name", this.modal);
       nameInput?.focus();
       dispatchEvent(this.modal, "open", { number: this.runtimeNumber });
+      this._trackGA("whatsappWidgetOpen", {
+        event_category: "engagement",
+        event_label: "WhatsApp Widget",
+        value: 1,
+        widget_number: this.runtimeNumber,
+      });
     }
 
     /** Fecha o modal do widget. */
