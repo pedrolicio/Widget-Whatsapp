@@ -67,8 +67,8 @@ Widget pronto para uso que capta informações de leads (nome, e-mail, telefone,
 
 1. Acesse o [Google Sheets](https://docs.google.com/spreadsheets/) e crie uma nova planilha em branco.
 2. Renomeie a aba principal para algo fácil de identificar, por exemplo `Leads`.
-3. Na linha de cabeçalho (células `A1` até `H1`), preencha os seguintes rótulos, respeitando esta ordem: `nome`, `email`, `telefone`, `consent`, `timestamp`, `userAgent`, `pageUrl`, `userIP`.
-4. Caso deseje armazenar outros metadados enviados pelo widget, adicione novas colunas após `H1` com os nomes correspondentes.
+3. Na linha de cabeçalho (células `A1` em diante), preencha os seguintes rótulos, respeitando esta ordem: `nome`, `email`, `telefone`, `consent`, `timestamp`, `data/hora da ação`, `userAgent`, `pageUrl`, `userIP`, `gbraid`, `wbraid`.
+4. Caso deseje armazenar outros metadados enviados pelo widget, adicione novas colunas após `wbraid` com os nomes correspondentes.
 5. Compartilhe a planilha com o mesmo usuário que será utilizado no Google Apps Script (ou defina permissões conforme necessário) para garantir que o script possa gravar os dados.
 
 ### Conectar com o Apps Script
@@ -128,7 +128,7 @@ Caso queira deixar, por exemplo, o telefone opcional ao mesmo tempo em que mant�
 - **Theme**: personalize cores de destaque, hover e elementos do formulário.
 - **Interceptação de links**: habilite `interceptLinks: true` para que links `wa.me`, `api.whatsapp.com/send` e `whatsapp://send` abram o widget antes da conversa.
 - **Campos extras**: adicione pares chave/valor em `extraFields` para enviar metadados ao seu backend.
-- **Captação automática de UTMs**: quando presentes na URL, `utm_source`, `utm_medium`, `utm_campaign`, `gclid`, `fbclid`, além de `page_url` e `referrer`, são enviados automaticamente no payload do formulário.
+- **Captação automática de UTMs**: quando presentes na URL, `utm_source`, `utm_medium`, `utm_campaign`, `gclid`, `fbclid`, `gbraid` e `wbraid`, além de `page_url` e `referrer`, são enviados automaticamente no payload do formulário.
 - **Pré-preenchimento e persistência**: utilize `prefill` para carregar dados iniciais e `storageKey` com `storageExpirationMinutes`
   para guardar as informações do visitante no `localStorage`.
 - **API pública**: após inicializar o widget, é possível utilizar `WhatsAppLeadWidget.open(number?)`, `WhatsAppLeadWidget.setNumber(number)`, `WhatsAppLeadWidget.close()` e `WhatsAppLeadWidget.destroy()`.
