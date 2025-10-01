@@ -83,6 +83,8 @@
     "utm_campaign",
     "gclid",
     "fbclid",
+    "gbraid",
+    "wbraid",
   ];
 
   const collectTrackingData = () => {
@@ -540,6 +542,11 @@
       );
       const popup = global.open(waUrl, "_blank");
 
+      const actionDate = new Date();
+      const formattedActionDate = actionDate.toLocaleString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+      });
+
       const payload = mergeDeep(
         mergeDeep(
           {
@@ -547,9 +554,8 @@
             email,
             telefone: phone,
             consent,
-            timestamp: new Date().toLocaleString("pt-BR", {
-              timeZone: "America/Sao_Paulo",
-            }),
+            timestamp: formattedActionDate,
+            "data/hora da ação": formattedActionDate,
             userAgent: global.navigator?.userAgent || "",
             pageUrl: global.location?.href || "",
           },
