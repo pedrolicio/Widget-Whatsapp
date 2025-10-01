@@ -62,7 +62,8 @@ Um exemplo completo está disponível em [`example/index.html`](example/index.ht
 - **Theme**: personalize cores de destaque, hover e elementos do formulário.
 - **Interceptação de links**: habilite `interceptLinks: true` para que links `wa.me`, `api.whatsapp.com/send` e `whatsapp://send` abram o widget antes da conversa.
 - **Campos extras**: adicione pares chave/valor em `extraFields` para enviar metadados ao seu backend.
-- **API pública**: após inicializar o widget, é possível utilizar `WhatsAppLeadWidget.open(number?)`, `WhatsAppLeadWidget.setNumber(number)` e `WhatsAppLeadWidget.destroy()`.
+- **API pública**: após inicializar o widget, é possível utilizar `WhatsAppLeadWidget.open(number?)`, `WhatsAppLeadWidget.setNumber(number)`, `WhatsAppLeadWidget.close()` e `WhatsAppLeadWidget.destroy()`.
+- **Acessibilidade aprimorada**: o modal possui foco aprisionado e pode ser fechado com a tecla `Esc`, além de melhor suporte para leitores de tela.
 
 ## Desenvolvimento
 
