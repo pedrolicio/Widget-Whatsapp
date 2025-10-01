@@ -373,19 +373,32 @@
         $("#wlw-consent", this.modal)
       );
       const submitBtn = $(".wlw-submit", this.modal);
+      const form = /** @type {HTMLFormElement|null} */ (
+        $(".wlw-form", this.modal)
+      );
 
       const name = nameInput?.value.trim() || "";
       const email = emailInput?.value.trim() || "";
       const consent = consentInput?.checked ? "Sim" : "Não";
 
-      if (!name || !email) {
-        alert(this.config.texts.required);
-        return;
+      if (nameInput) {
+        nameInput.value = name;
+        if (typeof nameInput.setCustomValidity === "function") {
+          nameInput.setCustomValidity("");
+        }
+      }
+      if (emailInput) {
+        emailInput.value = email;
+        if (typeof emailInput.setCustomValidity === "function") {
+          emailInput.setCustomValidity("");
+        }
       }
 
-      if (email && !/^\S+@\S+\.\S+$/.test(email)) {
-        alert(this.config.texts.invalidEmail);
-        emailInput?.focus();
+      if (emailInput && email && !/^\S+@\S+\.\S+$/.test(email)) {
+        emailInput.setCustomValidity(this.config.texts.invalidEmail);
+      }
+
+      if (form && !form.reportValidity()) {
         return;
       }
 
