@@ -99,15 +99,49 @@ function doPost(e) {
     return maybeOptions;
   }
 
-  if (!e || !e.postData || !e.postData.contents) {
+  if (!e || !e.postData) {
+    return buildErrorResponse(e, 400, 'Missing payload.');
+  }
+
+  const postData = e.postData;
+  const contentType = postData.type || '';
+  const isJson = contentType.indexOf('application/json') === 0;
+  const hasContents = postData.contents && String(postData.contents).trim() !== '';
+  const parameters = e.parameter || {};
+  const multiParameters = e.parameters || {};
+  const hasParameters = Object.keys(parameters).length > 0 || Object.keys(multiParameters).length > 0;
+
+  if (!hasContents && !hasParameters) {
     return buildErrorResponse(e, 400, 'Missing payload.');
   }
 
   let payload;
-  try {
-    payload = JSON.parse(e.postData.contents);
-  } catch (error) {
-    return buildErrorResponse(e, 400, 'Invalid JSON payload.');
+  if (isJson) {
+    if (!hasContents) {
+      return buildErrorResponse(e, 400, 'Missing JSON payload.');
+    }
+
+    try {
+      payload = JSON.parse(postData.contents);
+    } catch (error) {
+      return buildErrorResponse(e, 400, 'Invalid JSON payload.');
+    }
+  } else {
+    const source = Object.keys(multiParameters).length > 0 ? multiParameters : parameters;
+    payload = {};
+
+    Object.keys(source).forEach(function(key) {
+      const value = source[key];
+      if (Array.isArray(value)) {
+        payload[key] = value.length > 1 ? value : value[0];
+      } else if (value !== undefined) {
+        payload[key] = value;
+      }
+    });
+
+    if (Object.keys(payload).length === 0) {
+      return buildErrorResponse(e, 400, 'Unable to parse payload.');
+    }
   }
 
   const sheet = getSheet();
