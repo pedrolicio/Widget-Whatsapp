@@ -282,14 +282,19 @@
       .wlw-consent input { width: 16px; height: 16px; }
       .wlw-consent-label { margin: 0; font-weight: normal; }
       .wlw-submit { background-color: ${t.primary}; color: #fff; border: none; border-radius: 6px; padding: 11px; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background-color 0.2s ease; }
+      .wlw-submit:focus, .wlw-submit:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(3,109,95,0.3); }
       .wlw-submit:hover:not(:disabled) { background-color: ${t.primaryHover}; }
       .wlw-submit:disabled { opacity: 0.7; cursor: not-allowed; }
       .wlw-fab { position: fixed; z-index: 999; bottom: 20px; right: 20px; cursor: pointer; border: 0; background: transparent; padding: 0; }
+      .wlw-fab:focus, .wlw-fab:focus-visible { outline: none; border-radius: 50%; box-shadow: 0 0 0 4px rgba(3,109,95,0.25); }
       .wlw-fab img { height: 60px; width: auto; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25)); }
+      .wlw-close:focus, .wlw-close:focus-visible { outline: none; border-radius: 6px; box-shadow: 0 0 0 3px rgba(3,109,95,0.25); }
+      .wlw-consent input:focus, .wlw-consent input:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(3,109,95,0.25); }
       .wlw-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.6); border-radius: 50%; border-top-color: #fff; animation: wlwspin 0.6s linear infinite; }
       @keyframes wlwspin { to { transform: rotate(360deg); } }
       .wlw-footer { margin-top: 12px; font-size: 12px; text-align: center; color: #666; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
       .wlw-footer a { color: #666; text-decoration: none; }
+      .wlw-footer a:focus, .wlw-footer a:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(3,109,95,0.25); border-radius: 4px; }
       .wlw-footer a:hover { text-decoration: underline; }
       @media (max-width: 420px) { .wlw-modal { width: calc(100% - 40px); right: 20px; left: 20px; } .wlw-fab img { height: 52px; } }
     `;
