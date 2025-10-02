@@ -271,7 +271,7 @@
       .wlw-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.2); }
       .wlw-title { font-size: 17px; font-weight: 700; line-height: 1.2; }
       .wlw-status { font-size: 13px; color: #c8f8c8; }
-      .wlw-close { position: absolute; top: 10px; right: 10px; cursor: pointer; font-size: 22px; color: #fff; background: transparent; border: none; padding: 0 4px; }
+      .wlw-close { position: absolute; top: 10px; right: 10px; cursor: pointer; font-size: 22px; color: #fff !important; background-color: transparent !important; border: none !important; border-radius: 4px !important; box-shadow: none !important; padding: 0 4px; }
       .wlw-body { background: ${t.bubbleBg} url('${cfg.backgroundPattern}') repeat; background-size: 300px; padding: 12px; }
       .wlw-msg { background: #fff; border: 1px solid #cacaca; border-radius: 6px; padding: 10px; color: #4a4a4a; margin-bottom: 10px; font-size: 14px; line-height: 1.5; }
       .wlw-form { display: flex; flex-direction: column; }
@@ -281,11 +281,11 @@
       .wlw-consent { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 14px; color: #4a4a4a; }
       .wlw-consent input { width: 16px; height: 16px; }
       .wlw-consent-label { margin: 0; font-weight: normal; }
-      .wlw-submit { background-color: ${t.primary}; color: #fff; border: none; border-radius: 6px; padding: 11px; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background-color 0.2s ease; }
+      .wlw-submit { background-color: ${t.primary} !important; color: #fff !important; border: none !important; border-radius: 6px !important; box-shadow: none !important; padding: 11px; font-size: 16px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background-color 0.2s ease; }
       .wlw-submit:focus, .wlw-submit:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(3,109,95,0.3); }
       .wlw-submit:hover:not(:disabled) { background-color: ${t.primaryHover}; }
       .wlw-submit:disabled { opacity: 0.7; cursor: not-allowed; }
-      .wlw-fab { position: fixed; z-index: 999; bottom: 20px; right: 20px; cursor: pointer; border: 0; background: transparent; padding: 0; }
+      .wlw-fab { position: fixed; z-index: 999; bottom: 20px; right: 20px; cursor: pointer; border: none !important; border-radius: 50% !important; background-color: transparent !important; color: ${t.primary} !important; box-shadow: none !important; padding: 0; }
       .wlw-fab:focus, .wlw-fab:focus-visible { outline: none; border-radius: 50%; box-shadow: 0 0 0 4px rgba(3,109,95,0.25); }
       .wlw-fab img { height: 60px; width: auto; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.25)); }
       .wlw-close:focus, .wlw-close:focus-visible { outline: none; border-radius: 6px; box-shadow: 0 0 0 3px rgba(3,109,95,0.25); }
