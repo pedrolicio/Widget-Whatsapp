@@ -83,7 +83,7 @@ Depois de colar o conteúdo do arquivo `apps-script.gs` no editor do Apps Script
 2. No painel que abrir, selecione **App da Web** como tipo de implantação.
 3. Preencha a **Descrição** com algo que ajude a identificar o projeto (por exemplo, "Webhook do Widget WhatsApp").
 4. Em **Executar como**, escolha a sua conta (o mesmo usuário que tem acesso de edição à planilha).
-5. Em **Quem pode acessar**, selecione **Qualquer pessoa com o link** para permitir que o widget envie requisições.
+5. Em **Quem pode acessar**, selecione **Qualquer pessoa com uma Conta do Google** (ou **Qualquer pessoa** se disponível na sua conta). Essa opção garante que o Web App aceite requisições externas do widget.
 6. Clique em **Implantar** e autorize o script quando solicitado.
 7. Copie a URL exibida como **URL do App da Web** e informe-a na opção `scriptURL` da configuração do widget.
 
