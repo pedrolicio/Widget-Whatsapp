@@ -266,12 +266,12 @@
     const t = cfg.theme;
     style.textContent = `
       .wlw-modal { position: fixed; bottom: 20px; right: 20px; width: 340px; border: 1px solid #cacaca; border-radius: 6px; overflow: hidden; display: none; z-index: 9999; font-family: "Open Sans", Arial, sans-serif; background: #fff; box-shadow: 0 12px 30px rgba(0,0,0,0.18); }
-      .wlw-header { background-color: ${t.primary}; color: #fff; padding: 12px; display: flex; align-items: center; position: relative; gap: 10px; }
+      .wlw-header { background-color: ${t.primary}; color: #fff; padding: 12px; display: flex; align-items: center; position: relative !important; gap: 10px; }
       .wlw-header-info { flex: 1; }
       .wlw-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.2); }
       .wlw-title { font-size: 17px; font-weight: 700; line-height: 1.2; }
       .wlw-status { font-size: 13px; color: #c8f8c8; }
-      .wlw-close { position: absolute; top: 10px; right: 10px; cursor: pointer; font-size: 22px; color: #fff !important; background-color: transparent !important; border: none !important; border-radius: 4px !important; box-shadow: none !important; padding: 0 4px; }
+      .wlw-close { position: absolute !important; top: 10px !important; right: 10px !important; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 22px; line-height: 1; color: #fff !important; background: transparent !important; border: none !important; border-radius: 4px; box-shadow: none !important; padding: 0; appearance: none; }
       .wlw-body { background: ${t.bubbleBg} url('${cfg.backgroundPattern}') repeat; background-size: 300px; padding: 12px; }
       .wlw-msg { background: #fff; border: 1px solid #cacaca; border-radius: 6px; padding: 10px; color: #4a4a4a; margin-bottom: 10px; font-size: 14px; line-height: 1.5; }
       .wlw-form { display: flex; flex-direction: column; }
