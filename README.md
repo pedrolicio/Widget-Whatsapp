@@ -75,6 +75,18 @@ Widget pronto para uso que capta informações de leads (nome, e-mail, telefone,
 
 O modelo presente em [`apps-script.gs`](apps-script.gs) usa `JSON.parse(e.postData.contents)` para tratar requisições vindas de clientes que enviam o corpo como JSON. Quando o único cliente for o widget deste repositório, o Apps Script pode ler diretamente os parâmetros enviados pelo formulário, montando o `payload` a partir de `e.parameter`/`e.parameters` (consulte as linhas 102–114 para ajustar o template).
 
+#### Publicar o Web App
+
+Depois de colar o conteúdo do arquivo `apps-script.gs` no editor do Apps Script e associá-lo à sua planilha:
+
+1. Clique em **Implantar → Nova implantação**.
+2. No painel que abrir, selecione **App da Web** como tipo de implantação.
+3. Preencha a **Descrição** com algo que ajude a identificar o projeto (por exemplo, "Webhook do Widget WhatsApp").
+4. Em **Executar como**, escolha a sua conta (o mesmo usuário que tem acesso de edição à planilha).
+5. Em **Quem pode acessar**, selecione **Qualquer pessoa com o link** para permitir que o widget envie requisições.
+6. Clique em **Implantar** e autorize o script quando solicitado.
+7. Copie a URL exibida como **URL do App da Web** e informe-a na opção `scriptURL` da configuração do widget.
+
 #### Exemplo de `doPost` com parâmetros
 
 ```js
