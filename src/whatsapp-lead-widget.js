@@ -666,7 +666,20 @@
       return fetch(this.config.scriptURL, {
         method: "POST",
         body: formData,
-      }).then((response) => response.text());
+      }).then(async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          if (text) {
+            log("error", "Falha ao enviar lead", response.status, text);
+          }
+          const message = text?.trim() || `Request failed with status ${response.status}`;
+          throw new Error(message);
+        }
+        if (text) {
+          log("log", "Resposta do backend", text);
+        }
+        return text;
+      });
     }
 
     /** Dispara evento GA4, se configurado. */
