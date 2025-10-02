@@ -83,9 +83,16 @@ Depois de colar o conteúdo do arquivo `apps-script.gs` no editor do Apps Script
 2. No painel que abrir, selecione **App da Web** como tipo de implantação.
 3. Preencha a **Descrição** com algo que ajude a identificar o projeto (por exemplo, "Webhook do Widget WhatsApp").
 4. Em **Executar como**, escolha a sua conta (o mesmo usuário que tem acesso de edição à planilha).
-5. Em **Quem pode acessar**, selecione **Qualquer pessoa com o link** para permitir que o widget envie requisições.
+5. Em **Quem pode acessar**, selecione **Qualquer pessoa com uma Conta do Google** (ou **Qualquer pessoa** se disponível na sua conta). Essa opção garante que o Web App aceite requisições externas do widget.
 6. Clique em **Implantar** e autorize o script quando solicitado.
 7. Copie a URL exibida como **URL do App da Web** e informe-a na opção `scriptURL` da configuração do widget.
+
+> Durante a primeira execução ou implantação você pode ver o aviso **"Google não verificou este app"**. Esse alerta aparece em
+> projetos novos que usam escopos sensíveis (como o acesso à planilha) e é esperado quando o script é utilizado internamente.
+> Para prosseguir, clique em **Avançado** → **Ir para _nome-do-projeto_ (não seguro)** e conclua a autorização. Caso precise
+> compartilhar o Web App com outras pessoas sem exibir o aviso, defina a tela de consentimento como *Projeto interno* (ou
+> adicione os usuários como testadores) e inicie o processo de verificação junto ao Google quando for abrir o acesso ao
+> público externo.
 
 #### Exemplo de `doPost` com parâmetros
 
