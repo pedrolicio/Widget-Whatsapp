@@ -1,189 +1,89 @@
 /**
- * Google Apps Script template for interacting with a Google Sheet via Web App endpoints.
+ * Google Apps Script minimal webhook for the WhatsApp Lead Widget.
  *
- * Deploy as a Web App and set "Execute as" to "Me" and "Who has access" to "Anyone with the link"
- * (or a more restrictive choice that fits your use case).
+ * Preencha o objeto CONFIG com as informações da sua planilha e publique o
+ * script como um App da Web. O widget envia todos os dados através de
+ * `e.parameter`, portanto não há necessidade de lidar com JSON ou CORS aqui.
  */
 const CONFIG = {
+  /**
+   * ID da planilha (encontrado na URL do Google Sheets).
+   * @type {string}
+   */
   spreadsheetId: 'REPLACE_WITH_SPREADSHEET_ID',
-  sheetName: 'Sheet1',
-  // Informe os domínios autorizados a consumir o Web App. Inclua aqui o
-  // domínio enviado pelo widget (global.location.origin) e/ou '*' para
-  // permitir qualquer origem.
-  allowOrigins: ['https://seu-dominio.com', 'http://localhost:3000'],
+
+  /**
+   * Nome da aba onde os leads serão registrados.
+   * @type {string}
+   */
+  sheetName: 'Leads',
+
+  /**
+   * Ordem esperada das colunas na planilha.
+   * Ajuste conforme o cabeçalho configurado no Sheets.
+   * @type {Array<{ key?: string, value?: (params: GoogleAppsScript.Events.DoPost['parameter']) => any, transform?: (value: any, params: GoogleAppsScript.Events.DoPost['parameter']) => any }>} */
+  columns: [
+    { value: function () { return new Date(); } }, // timestamp da submissão
+    { key: 'nome' },
+    { key: 'email' },
+    { key: 'telefone' },
+    { key: 'consent', transform: function (value) { return value === 'true' || value === true; } },
+    { key: 'userAgent' },
+    { key: 'pageUrl' },
+    { key: 'userIP' },
+    { key: 'gbraid' },
+    { key: 'wbraid' },
+  ],
 };
 
 /**
- * Resolve the active sheet using the configuration above.
+ * Obtém a planilha configurada acima, disparando erro quando não encontrada.
  * @returns {GoogleAppsScript.Spreadsheet.Sheet}
  */
 function getSheet() {
-  const spreadsheet = SpreadsheetApp.openById(CONFIG.spreadsheetId);
-  const sheet = spreadsheet.getSheetByName(CONFIG.sheetName);
+  var spreadsheet = SpreadsheetApp.openById(CONFIG.spreadsheetId);
+  var sheet = spreadsheet.getSheetByName(CONFIG.sheetName);
 
   if (!sheet) {
-    throw new Error('Sheet "' + CONFIG.sheetName + '" not found.');
+    throw new Error('Aba "' + CONFIG.sheetName + '" não encontrada.');
   }
 
   return sheet;
 }
 
 /**
- * Common CORS handling for both GET and POST requests.
- * @param {GoogleAppsScript.Events.DoGet|GoogleAppsScript.Events.DoPost} e
- * @param {GoogleAppsScript.Content.TextOutput} output
- */
-function applyCors(e, output) {
-  const origin = (e && e.parameter && e.parameter.origin) || '';
-  const allowed = CONFIG.allowOrigins;
-  const allowOrigin = allowed.indexOf('*') !== -1
-    ? '*'
-    : (allowed.indexOf(origin) !== -1 ? origin : allowed[0] || '*');
-
-  output.setHeader('Access-Control-Allow-Origin', allowOrigin);
-  output.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  output.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  output.setHeader('Access-Control-Max-Age', '3600');
-}
-
-/**
- * Handle preflight OPTIONS requests.
- * Apps Script treats unknown methods as errors, so we emulate OPTIONS via doPost with the
- * X-HTTP-Method-Override header.
- * @param {GoogleAppsScript.Events.DoPost} e
- */
-function maybeHandleOptions(e) {
-  const headers = (e && e.postData && e.postData.type === 'application/json')
-    ? JSON.parse(e.postData.contents || '{}').headers || {}
-    : {};
-
-  const methodOverride = headers['X-HTTP-Method-Override'] || headers['x-http-method-override'];
-
-  if (methodOverride && methodOverride.toUpperCase() === 'OPTIONS') {
-    const output = ContentService.createTextOutput('');
-    applyCors(e, output);
-    return output;
-  }
-
-  return null;
-}
-
-/**
- * GET endpoint: fetch rows from the sheet.
- * @param {GoogleAppsScript.Events.DoGet} e
- */
-function doGet(e) {
-  try {
-    const sheet = getSheet();
-    const data = sheet.getDataRange().getDisplayValues();
-    const [header, ...rows] = data;
-
-    const json = rows.map(function(row) {
-      return header.reduce(function(acc, key, index) {
-        acc[key] = row[index];
-        return acc;
-      }, {});
-    });
-
-    const output = ContentService
-      .createTextOutput(JSON.stringify({ data: json }))
-      .setMimeType(ContentService.MimeType.JSON);
-
-    applyCors(e, output);
-    return output;
-  } catch (error) {
-    const message = (error && error.message) ? error.message : 'Failed to access sheet.';
-    return buildErrorResponse(e, 500, message);
-  }
-}
-
-/**
- * POST endpoint: append a row to the sheet.
+ * Manipula requisições POST vindas do widget.
  * @param {GoogleAppsScript.Events.DoPost} e
  */
 function doPost(e) {
-  const maybeOptions = maybeHandleOptions(e);
-  if (maybeOptions) {
-    return maybeOptions;
-  }
-
-  if (!e || !e.postData) {
-    return buildErrorResponse(e, 400, 'Missing payload.');
-  }
-
-  const postData = e.postData;
-  const contentType = postData.type || '';
-  const isJson = contentType.indexOf('application/json') === 0;
-  const hasContents = postData.contents && String(postData.contents).trim() !== '';
-  const parameters = e.parameter || {};
-  const multiParameters = e.parameters || {};
-  const hasParameters = Object.keys(parameters).length > 0 || Object.keys(multiParameters).length > 0;
-
-  if (!hasContents && !hasParameters) {
-    return buildErrorResponse(e, 400, 'Missing payload.');
-  }
-
-  let payload;
-  if (isJson) {
-    if (!hasContents) {
-      return buildErrorResponse(e, 400, 'Missing JSON payload.');
-    }
-
-    try {
-      payload = JSON.parse(postData.contents);
-    } catch (error) {
-      return buildErrorResponse(e, 400, 'Invalid JSON payload.');
-    }
-  } else {
-    const source = Object.keys(multiParameters).length > 0 ? multiParameters : parameters;
-    payload = {};
-
-    Object.keys(source).forEach(function(key) {
-      const value = source[key];
-      if (Array.isArray(value)) {
-        payload[key] = value.length > 1 ? value : value[0];
-      } else if (value !== undefined) {
-        payload[key] = value;
-      }
-    });
-
-    if (Object.keys(payload).length === 0) {
-      return buildErrorResponse(e, 400, 'Unable to parse payload.');
-    }
-  }
-
   try {
-    const sheet = getSheet();
-    const headers = sheet.getDataRange().getValues()[0];
-    const row = headers.map(function(key) { return payload[key] || ''; });
+    if (!e || !e.parameter) {
+      throw new Error('Requisição inválida: parâmetros ausentes.');
+    }
+
+    var params = e.parameter;
+    var sheet = getSheet();
+    var row = CONFIG.columns.map(function (column) {
+      if (typeof column.value === 'function') {
+        return column.value(params);
+      }
+
+      var rawValue = column.key ? params[column.key] : '';
+      if (typeof column.transform === 'function') {
+        return column.transform(rawValue, params);
+      }
+
+      return rawValue !== undefined ? rawValue : '';
+    });
 
     sheet.appendRow(row);
 
-    const output = ContentService
+    return ContentService
       .createTextOutput(JSON.stringify({ success: true }))
       .setMimeType(ContentService.MimeType.JSON);
-
-    applyCors(e, output);
-    return output;
   } catch (error) {
-    const message = (error && error.message) ? error.message : 'Failed to access sheet.';
-    return buildErrorResponse(e, 500, message);
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, message: String(error) }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
-}
-
-/**
- * Build a standardized error response with CORS headers applied.
- * @param {GoogleAppsScript.Events.DoGet|GoogleAppsScript.Events.DoPost} e
- * @param {number} status
- * @param {string} message
- */
-function buildErrorResponse(e, status, message) {
-  const output = ContentService
-    .createTextOutput(JSON.stringify({ success: false, message: message }))
-    .setMimeType(ContentService.MimeType.JSON);
-
-  applyCors(e, output);
-  output.setHeader('Access-Control-Allow-Origin', '*');
-  output.setHeader('Status', status);
-  return output;
 }
