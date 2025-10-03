@@ -656,6 +656,7 @@
     /** Envia os dados ao backend se `scriptURL` estiver configurado. */
     _postLead(payload) {
       if (!this.config.scriptURL) return Promise.resolve("skipped");
+      const origin = global.location?.origin;
       const formData = new FormData();
       Object.keys(payload).forEach((key) => {
         const value = payload[key];
@@ -663,6 +664,9 @@
           formData.append(key, value);
         }
       });
+      if (origin) {
+        formData.append("origin", origin);
+      }
       return fetch(this.config.scriptURL, {
         method: "POST",
         body: formData,
