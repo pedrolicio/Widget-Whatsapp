@@ -71,6 +71,65 @@ function getSheet() {
 }
 
 /**
+ * Retorna a lista esperada de cabeçalhos com base na configuração das colunas.
+ * @returns {string[]}
+ */
+function getExpectedHeaders() {
+  return CONFIG.columns.map(function (column) {
+    if (column.header) {
+      return column.header;
+    }
+
+    if (column.key) {
+      return column.key;
+    }
+
+    return '';
+  });
+}
+
+/**
+ * Garante que a primeira linha da planilha contenha os cabeçalhos esperados.
+ * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet
+ */
+function ensureHeader(sheet) {
+  var expectedHeaders = getExpectedHeaders();
+
+  if (!expectedHeaders.length) {
+    return;
+  }
+
+  var range = sheet.getRange(1, 1, 1, expectedHeaders.length);
+  var currentValues = range.getValues()[0];
+  var isBlank = true;
+
+  for (var i = 0; i < currentValues.length; i++) {
+    if (currentValues[i] !== '' && currentValues[i] !== null) {
+      isBlank = false;
+      break;
+    }
+  }
+
+  var needsUpdate = isBlank;
+
+  if (!needsUpdate) {
+    for (var j = 0; j < expectedHeaders.length; j++) {
+      var existingValue = currentValues[j] != null ? String(currentValues[j]) : '';
+      var expectedValue = expectedHeaders[j] != null ? String(expectedHeaders[j]) : '';
+
+      if (existingValue !== expectedValue) {
+        needsUpdate = true;
+        break;
+      }
+    }
+  }
+
+  if (needsUpdate) {
+    range.setValues([expectedHeaders]);
+  }
+}
+
+/**
  * Manipula requisições POST vindas do widget.
  * @param {GoogleAppsScript.Events.DoPost} e
  */
@@ -82,6 +141,7 @@ function doPost(e) {
 
     var params = e.parameter;
     var sheet = getSheet();
+    ensureHeader(sheet);
     var row = CONFIG.columns.map(function (column) {
       if (typeof column.value === 'function') {
         return column.value(params);
