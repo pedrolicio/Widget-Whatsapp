@@ -560,9 +560,7 @@
             telefone: phone,
             consent,
             timestamp: formattedActionDate,
-            "data/hora da ação": formattedActionDate,
             userAgent: global.navigator?.userAgent || "",
-            pageUrl: global.location?.href || "",
           },
           collectTrackingData()
         ),
