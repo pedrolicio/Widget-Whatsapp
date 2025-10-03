@@ -1,8 +1,11 @@
-Este repositório contém um modelo de Google Apps Script para integrar uma planilha do Google com aplicações externas via Web App. Copie o conteúdo de `apps-script.gs` para o editor do Apps Script vinculado à sua planilha e ajuste as configurações conforme necessário. No objeto `CONFIG`, informe em `allowOrigins` o domínio que hospedará o widget (por exemplo, `https://seu-dominio.com`) e/ou `'*'` para permitir qualquer origem, garantindo que a validação de CORS aceite as requisições enviadas.
-=======
 # WhatsApp Lead Widget
 
-Widget pronto para uso que capta informações de leads (nome, e-mail, telefone, consentimento e dados extras) antes de abrir uma conversa no WhatsApp. O componente foi pensado para ser facilmente incorporado em qualquer site estático ou aplicação existente.
+Widget pronto para uso que capta informações de leads (nome, e-mail, telefone, consentimento e dados extras) antes de abrir uma
+conversa no WhatsApp. O componente foi pensado para ser facilmente incorporado em qualquer site estático ou aplicação existente.
+
+Este repositório também inclui um modelo mínimo de Google Apps Script (`apps-script.gs`). Ele grava no Google Sheets os dados
+recebidos via `e.parameter`, exatamente como no snippet compartilhado pelo cliente. Copie o arquivo para o editor do Apps Script
+da sua planilha, preencha as chaves de configuração (`spreadsheetId`, `sheetName` e a ordem das colunas) e publique o Web App.
 
 ## Recursos
 
@@ -67,53 +70,47 @@ Widget pronto para uso que capta informações de leads (nome, e-mail, telefone,
 
 1. Acesse o [Google Sheets](https://docs.google.com/spreadsheets/) e crie uma nova planilha em branco.
 2. Renomeie a aba principal para algo fácil de identificar, por exemplo `Leads`.
-3. Na linha de cabeçalho (células `A1` em diante), preencha os seguintes rótulos, respeitando esta ordem: `nome`, `email`, `telefone`, `consent`, `timestamp`, `data/hora da ação`, `userAgent`, `pageUrl`, `userIP`, `gbraid`, `wbraid`.
-4. Caso deseje armazenar outros metadados enviados pelo widget, adicione novas colunas após `wbraid` com os nomes correspondentes.
-5. Compartilhe a planilha com o mesmo usuário que será utilizado no Google Apps Script (ou defina permissões conforme necessário) para garantir que o script possa gravar os dados.
+3. Na linha de cabeçalho (células `A1` em diante), preencha os rótulos exatamente na mesma ordem definida em `CONFIG.columns` do
+   arquivo `apps-script.gs`. O modelo padrão considera: `timestamp`, `nome`, `email`, `telefone`, `consent`, `userAgent`,
+   `pageUrl`, `userIP`, `gbraid`, `wbraid`.
+4. Caso deseje armazenar outros metadados enviados pelo widget, adicione novas colunas após `wbraid` e inclua objetos
+   correspondentes no array `columns` (ex.: `{ key: 'minhaChave' }`).
+5. Compartilhe a planilha com o mesmo usuário que será utilizado no Google Apps Script (ou defina permissões conforme necessário)
+   para garantir que o script possa gravar os dados.
 
 ### Conectar com o Apps Script
 
-O modelo presente em [`apps-script.gs`](apps-script.gs) usa `JSON.parse(e.postData.contents)` para tratar requisições vindas de clientes que enviam o corpo como JSON. Quando o único cliente for o widget deste repositório, o Apps Script pode ler diretamente os parâmetros enviados pelo formulário, montando o `payload` a partir de `e.parameter`/`e.parameters` (consulte as linhas 102–114 para ajustar o template).
+1. Abra o editor do [Google Apps Script](https://script.google.com/) a partir da planilha.
+2. Apague qualquer conteúdo existente e cole o código de [`apps-script.gs`](apps-script.gs).
+3. Atualize `CONFIG.spreadsheetId` com o ID da planilha (trecho entre `/d/` e `/edit` na URL) e, se necessário, ajuste `sheetName`
+   e a ordem das colunas.
+4. Salve o projeto e clique em **Executar → doPost** uma vez para autorizar o acesso à planilha.
+5. Implante como **App da Web** escolhendo executar como você e liberar acesso para "Qualquer pessoa com uma Conta do Google"
+   (ou outra opção que atenda ao seu caso).
+6. Copie a **URL do App da Web** gerada e informe-a na propriedade `scriptURL` ao inicializar o widget.
 
-#### Publicar o Web App
+> Como o Apps Script lê apenas `e.parameter`, ele funciona imediatamente com o `FormData` enviado pelo widget — não é preciso
+> habilitar CORS manualmente nem fazer parsing de JSON.
 
-Depois de colar o conteúdo do arquivo `apps-script.gs` no editor do Apps Script e associá-lo à sua planilha:
+#### Exemplo de `doPost`
 
-1. Clique em **Implantar → Nova implantação**.
-2. No painel que abrir, selecione **App da Web** como tipo de implantação.
-3. Preencha a **Descrição** com algo que ajude a identificar o projeto (por exemplo, "Webhook do Widget WhatsApp").
-4. Em **Executar como**, escolha a sua conta (o mesmo usuário que tem acesso de edição à planilha).
-5. Em **Quem pode acessar**, selecione **Qualquer pessoa com uma Conta do Google** (ou **Qualquer pessoa** se disponível na sua conta). Essa opção garante que o Web App aceite requisições externas do widget.
-6. Clique em **Implantar** e autorize o script quando solicitado.
-7. Copie a URL exibida como **URL do App da Web** e informe-a na opção `scriptURL` da configuração do widget.
-
-> Durante a primeira execução ou implantação você pode ver o aviso **"Google não verificou este app"**. Esse alerta aparece em
-> projetos novos que usam escopos sensíveis (como o acesso à planilha) e é esperado quando o script é utilizado internamente.
-> Para prosseguir, clique em **Avançado** → **Ir para _nome-do-projeto_ (não seguro)** e conclua a autorização. Caso precise
-> compartilhar o Web App com outras pessoas sem exibir o aviso, defina a tela de consentimento como *Projeto interno* (ou
-> adicione os usuários como testadores) e inicie o processo de verificação junto ao Google quando for abrir o acesso ao
-> público externo.
-
-#### Exemplo de `doPost` com parâmetros
+O arquivo `apps-script.gs` inclui um `doPost` completo e pronto para uso. Abaixo está um trecho simplificado para consulta:
 
 ```js
 function doPost(e) {
-  const payload = {
-    nome: e.parameter.nome,
-    email: e.parameter.email,
-    telefone: e.parameter.telefone,
-    consent: e.parameter.consent === 'true',
-    timestamp: new Date(),
-    userAgent: e.parameter.userAgent,
-    pageUrl: e.parameter.pageUrl,
-    userIP: e.parameter.userIP,
-  };
+  var sheet = SpreadsheetApp.openById('SUA_PLANILHA_ID').getSheetByName('Leads');
+  var params = e.parameter;
+  sheet.appendRow([
+    new Date(),
+    params.nome || '',
+    params.email || '',
+    params.telefone || '',
+    params.consent === 'true',
+  ]);
 
-  appendToSheet_(payload);
-
-  return ContentService.createTextOutput(
-    JSON.stringify({ success: true })
-  ).setMimeType(ContentService.MimeType.JSON);
+  return ContentService
+    .createTextOutput(JSON.stringify({ success: true }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 ```
 
@@ -136,29 +133,3 @@ contactFields: {
   phone: { enabled: true, required: true }
 }
 ```
-
-Com essa estrutura você pode compor os cenários abaixo:
-
-- **Nome e e-mail obrigatórios**: `email.enabled = true`, `email.required = true`, `phone.enabled = false`.
-- **Nome e telefone obrigatórios**: `phone.enabled = true`, `phone.required = true`, `email.enabled = false`.
-- **Nome, e-mail e telefone**: habilite ambos; ajuste `required` individualmente (`true` para obrigatório, `false` para opcional).
-
-Caso queira deixar, por exemplo, o telefone opcional ao mesmo tempo em que mantém o campo visível, utilize `phone: { enabled: true, required: false }`. O formulário refletirá o status no rótulo (asterisco para obrigatórios) e só permitirá o envio quando os campos marcados como obrigatórios estiverem preenchidos.
-- **Theme**: personalize cores de destaque, hover e elementos do formulário.
-- **Interceptação de links**: habilite `interceptLinks: true` para que links `wa.me`, `api.whatsapp.com/send` e `whatsapp://send` abram o widget antes da conversa.
-- **Campos extras**: adicione pares chave/valor em `extraFields` para enviar metadados ao seu backend.
-- **Captação automática de UTMs**: quando presentes na URL, `utm_source`, `utm_medium`, `utm_campaign`, `gclid`, `fbclid`, `gbraid` e `wbraid`, além de `page_url` e `referrer`, são enviados automaticamente no payload do formulário.
-- **Pré-preenchimento e persistência**: utilize `prefill` para carregar dados iniciais e `storageKey` com `storageExpirationMinutes`
-  para guardar as informações do visitante no `localStorage`.
-- **API pública**: após inicializar o widget, é possível utilizar `WhatsAppLeadWidget.open(number?)`, `WhatsAppLeadWidget.setNumber(number)`, `WhatsAppLeadWidget.close()` e `WhatsAppLeadWidget.destroy()`.
-- **Acessibilidade aprimorada**: o modal possui foco aprisionado e pode ser fechado com a tecla `Esc`, além de melhor suporte para leitores de tela.
-
-## Desenvolvimento
-
-- O código principal está em `src/whatsapp-lead-widget.js` e não depende de bundlers.
-- Para visualizar alterações rapidamente, abra `example/index.html` com Live Server ou semelhante.
-- Para publicar em um CDN, basta minificar o arquivo se desejar e disponibilizá-lo.
-
-## Licença
-
-[MIT](LICENSE)
