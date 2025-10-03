@@ -97,7 +97,11 @@ function ensureHeader(sheet) {
     return;
   }
 
-  var range = sheet.getRange(1, 1, 1, expectedHeaders.length);
+  var totalColumns = Math.max(
+    sheet.getLastColumn(),
+    expectedHeaders.length
+  );
+  var range = sheet.getRange(1, 1, 1, totalColumns);
   var currentValues = range.getValues()[0];
   var isBlank = true;
 
@@ -122,8 +126,33 @@ function ensureHeader(sheet) {
     }
   }
 
+  if (!needsUpdate && currentValues.length > expectedHeaders.length) {
+    for (var k = expectedHeaders.length; k < currentValues.length; k++) {
+      var extraValue = currentValues[k] != null ? String(currentValues[k]) : '';
+      if (extraValue !== '') {
+        needsUpdate = true;
+        break;
+      }
+    }
+
+    if (!needsUpdate) {
+      needsUpdate = true;
+    }
+  }
+
   if (needsUpdate) {
-    range.setValues([expectedHeaders]);
+    sheet.getRange(1, 1, 1, expectedHeaders.length).setValues([expectedHeaders]);
+
+    if (totalColumns > expectedHeaders.length) {
+      var emptyValues = [];
+      for (var l = 0; l < totalColumns - expectedHeaders.length; l++) {
+        emptyValues.push('');
+      }
+
+      sheet
+        .getRange(1, expectedHeaders.length + 1, 1, totalColumns - expectedHeaders.length)
+        .setValues([emptyValues]);
+    }
   }
 }
 
