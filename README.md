@@ -98,22 +98,44 @@ Depois de colar o conteúdo do arquivo `apps-script.gs` no editor do Apps Script
 
 ```js
 function doPost(e) {
-  const payload = {
-    nome: e.parameter.nome,
-    email: e.parameter.email,
-    telefone: e.parameter.telefone,
-    consent: e.parameter.consent === 'true',
-    timestamp: new Date(),
-    userAgent: e.parameter.userAgent,
-    pageUrl: e.parameter.pageUrl,
-    userIP: e.parameter.userIP,
-  };
+  try {
+    var sheet = SpreadsheetApp
+      .openById('SUA_PLANILHA_ID')
+      .getSheetByName('Leads');
 
-  appendToSheet_(payload);
+    if (!sheet) {
+      throw new Error('Aba "Leads" não encontrada.');
+    }
 
-  return ContentService.createTextOutput(
-    JSON.stringify({ success: true })
-  ).setMimeType(ContentService.MimeType.JSON);
+    var nome = e.parameter.nome || '';
+    var email = e.parameter.email || '';
+    var telefone = e.parameter.telefone || '';
+    var consent = e.parameter.consent === 'true';
+    var timestamp = new Date();
+    var userAgent = e.parameter.userAgent || '';
+    var pageUrl = e.parameter.pageUrl || '';
+    var userIP = e.parameter.userIP || '';
+
+    // Ajuste a ordem/quantidade de colunas conforme o cabeçalho da sua planilha.
+    sheet.appendRow([
+      nome,
+      email,
+      telefone,
+      consent,
+      timestamp,
+      userAgent,
+      pageUrl,
+      userIP,
+    ]);
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: true })
+    ).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ success: false, message: String(error) })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 ```
 
