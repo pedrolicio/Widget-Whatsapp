@@ -73,23 +73,28 @@ function maybeHandleOptions(e) {
  * @param {GoogleAppsScript.Events.DoGet} e
  */
 function doGet(e) {
-  const sheet = getSheet();
-  const data = sheet.getDataRange().getDisplayValues();
-  const [header, ...rows] = data;
+  try {
+    const sheet = getSheet();
+    const data = sheet.getDataRange().getDisplayValues();
+    const [header, ...rows] = data;
 
-  const json = rows.map(function(row) {
-    return header.reduce(function(acc, key, index) {
-      acc[key] = row[index];
-      return acc;
-    }, {});
-  });
+    const json = rows.map(function(row) {
+      return header.reduce(function(acc, key, index) {
+        acc[key] = row[index];
+        return acc;
+      }, {});
+    });
 
-  const output = ContentService
-    .createTextOutput(JSON.stringify({ data: json }))
-    .setMimeType(ContentService.MimeType.JSON);
+    const output = ContentService
+      .createTextOutput(JSON.stringify({ data: json }))
+      .setMimeType(ContentService.MimeType.JSON);
 
-  applyCors(e, output);
-  return output;
+    applyCors(e, output);
+    return output;
+  } catch (error) {
+    const message = (error && error.message) ? error.message : 'Failed to access sheet.';
+    return buildErrorResponse(e, 500, message);
+  }
 }
 
 /**
@@ -147,18 +152,23 @@ function doPost(e) {
     }
   }
 
-  const sheet = getSheet();
-  const headers = sheet.getDataRange().getValues()[0];
-  const row = headers.map(function(key) { return payload[key] || ''; });
+  try {
+    const sheet = getSheet();
+    const headers = sheet.getDataRange().getValues()[0];
+    const row = headers.map(function(key) { return payload[key] || ''; });
 
-  sheet.appendRow(row);
+    sheet.appendRow(row);
 
-  const output = ContentService
-    .createTextOutput(JSON.stringify({ success: true }))
-    .setMimeType(ContentService.MimeType.JSON);
+    const output = ContentService
+      .createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
 
-  applyCors(e, output);
-  return output;
+    applyCors(e, output);
+    return output;
+  } catch (error) {
+    const message = (error && error.message) ? error.message : 'Failed to access sheet.';
+    return buildErrorResponse(e, 500, message);
+  }
 }
 
 /**
