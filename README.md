@@ -71,9 +71,10 @@ da sua planilha, preencha as chaves de configuração (`spreadsheetId`, `sheetNa
 1. Acesse o [Google Sheets](https://docs.google.com/spreadsheets/) e crie uma nova planilha em branco.
 2. Renomeie a aba principal para algo fácil de identificar, por exemplo `Leads`.
 3. Na linha de cabeçalho (células `A1` em diante), preencha os rótulos exatamente na mesma ordem definida em `CONFIG.columns` do
-   arquivo `apps-script.gs`. O modelo padrão considera: `timestamp`, `nome`, `email`, `telefone`, `consent`, `userAgent`,
-   `pageUrl`, `userIP`, `gbraid`, `wbraid`.
-4. Caso deseje armazenar outros metadados enviados pelo widget, adicione novas colunas após `wbraid` e inclua objetos
+   arquivo `apps-script.gs`. O modelo padrão considera: `nome`, `email`, `telefone`, `consent`, `timestamp`, `data/hora da ação`,
+   `userAgent`, `pageUrl`, `gclid`, `fbclid`, `gbraid`, `wbraid`, `utm_source`, `utm_medium`, `utm_campaign`, `referrer`,
+   `page_url`, `userIP`.
+4. Caso deseje armazenar outros metadados enviados pelo widget, adicione novas colunas após `userIP` e inclua objetos
    correspondentes no array `columns` (ex.: `{ key: 'minhaChave' }`).
 5. Compartilhe a planilha com o mesmo usuário que será utilizado no Google Apps Script (ou defina permissões conforme necessário)
    para garantir que o script possa gravar os dados.
