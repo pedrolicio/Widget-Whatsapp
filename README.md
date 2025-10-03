@@ -1,4 +1,4 @@
-Este repositório contém um modelo de Google Apps Script para integrar uma planilha do Google com aplicações externas via Web App. Copie o conteúdo de `apps-script.gs` para o editor do Apps Script vinculado à sua planilha e ajuste as configurações conforme necessário.
+Este repositório contém um modelo de Google Apps Script para integrar uma planilha do Google com aplicações externas via Web App. Copie o conteúdo de `apps-script.gs` para o editor do Apps Script vinculado à sua planilha e ajuste as configurações conforme necessário. No objeto `CONFIG`, informe em `allowOrigins` o domínio que hospedará o widget (por exemplo, `https://seu-dominio.com`) e/ou `'*'` para permitir qualquer origem, garantindo que a validação de CORS aceite as requisições enviadas.
 =======
 # WhatsApp Lead Widget
 

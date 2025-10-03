@@ -7,6 +7,9 @@
 const CONFIG = {
   spreadsheetId: 'REPLACE_WITH_SPREADSHEET_ID',
   sheetName: 'Sheet1',
+  // Informe os domínios autorizados a consumir o Web App. Inclua aqui o
+  // domínio enviado pelo widget (global.location.origin) e/ou '*' para
+  // permitir qualquer origem.
   allowOrigins: ['https://seu-dominio.com', 'http://localhost:3000'],
 };
 
