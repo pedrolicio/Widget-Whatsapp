@@ -23,16 +23,35 @@ const CONFIG = {
    * Ajuste conforme o cabeçalho configurado no Sheets.
    * @type {Array<{ key?: string, value?: (params: GoogleAppsScript.Events.DoPost['parameter']) => any, transform?: (value: any, params: GoogleAppsScript.Events.DoPost['parameter']) => any }>} */
   columns: [
-    { value: function () { return new Date(); } }, // timestamp da submissão
     { key: 'nome' },
     { key: 'email' },
     { key: 'telefone' },
-    { key: 'consent', transform: function (value) { return value === 'true' || value === true; } },
+    {
+      key: 'consent',
+      transform: function (value) {
+        if (value === 'Sim' || value === 'true' || value === true) {
+          return true;
+        }
+        if (value === 'Não' || value === 'false' || value === false) {
+          return false;
+        }
+        return value;
+      },
+    },
+    { key: 'timestamp' },
+    { key: 'data/hora da ação' },
     { key: 'userAgent' },
     { key: 'pageUrl' },
-    { key: 'userIP' },
+    { key: 'gclid' },
+    { key: 'fbclid' },
     { key: 'gbraid' },
     { key: 'wbraid' },
+    { key: 'utm_source' },
+    { key: 'utm_medium' },
+    { key: 'utm_campaign' },
+    { key: 'referrer' },
+    { key: 'page_url' },
+    { key: 'userIP' },
   ],
 };
 
