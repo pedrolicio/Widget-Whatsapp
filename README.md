@@ -120,6 +120,21 @@ function doPost(e) {
 
 Um exemplo completo está disponível em [`example/index.html`](example/index.html). Abra o arquivo direto no navegador para testar a experiência.
 
+### Persistência local dos dados do visitante
+
+O widget pode salvar temporariamente as informações preenchidas pelo visitante usando o `localStorage` do navegador. Para ativar
+esse comportamento, informe uma string na propriedade `storageKey`. O valor representa a chave utilizada para gravar e recuperar
+os dados do formulário.
+
+- `storageKey`: define a chave onde o widget armazena o JSON com os dados coletados. Quando presente, o widget tenta resgatar
+  automaticamente o conteúdo salvo na próxima abertura do modal.
+- `storageExpirationMinutes`: controla por quanto tempo (em minutos) os dados permanecem válidos. O valor padrão é 1440
+  minutos (24 horas). Após esse período, a chave é descartada e um novo preenchimento será solicitado.
+
+Em aplicações que utilizam múltiplos widgets simultaneamente (por exemplo, um para vendas e outro para suporte), configure um
+`storageKey` exclusivo para cada instância, evitando que os dados de um formulário sejam aplicados ao outro. Uma convenção útil é
+combinar o nome do projeto com o contexto do widget, como `"minha-app-vendas"` e `"minha-app-suporte"`.
+
 ## Personalização
 
 - **Texts**: altere rótulos, mensagens e textos exibidos no modal.
