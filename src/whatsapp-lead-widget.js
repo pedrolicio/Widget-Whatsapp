@@ -758,6 +758,8 @@
         this.runtimeNumber = this.config.whatsappNumber;
       }
 
+      this._applyPrefill();
+
       this.modal.style.display = "block";
       this.fab?.setAttribute("aria-expanded", "true");
       const nameInput = $("#wlw-name", this.modal);
