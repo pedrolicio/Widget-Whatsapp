@@ -105,6 +105,9 @@
         privacyPolicyUrl: "https://exemplo.com/politica",
         interceptLinks: true,
         enableGA4: true,
+        // Armazena os dados preenchidos no localStorage por 24 horas.
+        storageKey: "wlw-leads",
+        storageExpirationMinutes: 60 * 24,
         contactFields: {
           email: { enabled: true, required: false },
           phone: { enabled: true, required: true }
