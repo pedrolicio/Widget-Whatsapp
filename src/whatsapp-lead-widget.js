@@ -169,7 +169,7 @@
     theme: DEFAULT_THEME,
     prefill: null,
     storageKey: null,
-    storageExpirationMinutes: 60 * 24,
+    storageExpirationMinutes: 0,
     contactFields: DEFAULT_CONTACT_FIELDS,
   };
 

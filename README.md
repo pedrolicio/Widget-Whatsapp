@@ -128,8 +128,12 @@ os dados do formulário.
 
 - `storageKey`: define a chave onde o widget armazena o JSON com os dados coletados. Quando presente, o widget tenta resgatar
   automaticamente o conteúdo salvo na próxima abertura do modal.
-- `storageExpirationMinutes`: controla por quanto tempo (em minutos) os dados permanecem válidos. O valor padrão é 1440
-  minutos (24 horas). Após esse período, a chave é descartada e um novo preenchimento será solicitado.
+- `storageExpirationMinutes`: controla por quanto tempo (em minutos) os dados permanecem válidos. O valor padrão é `0`, ou
+  seja, os registros não expiram e permanecem disponíveis até que o visitante limpe o armazenamento do navegador. Defina um
+  número positivo caso queira que o widget descarte as informações após determinado período.
+
+Mesmo com armazenamento sem prazo, o visitante pode atualizar os dados a qualquer momento: basta editar o formulário e
+enviar novamente, e o widget sobrescreverá o conteúdo salvo.
 
 Em aplicações que utilizam múltiplos widgets simultaneamente (por exemplo, um para vendas e outro para suporte), configure um
 `storageKey` exclusivo para cada instância, evitando que os dados de um formulário sejam aplicados ao outro. Uma convenção útil é
