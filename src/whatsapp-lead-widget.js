@@ -390,6 +390,7 @@
     constructor(userConfig) {
       this.config = normalizeConfig(userConfig);
       this.runtimeNumber = this.config.whatsappNumber;
+      this._pendingContext = null;
 
       /** @type {HTMLElement | null} */
       this.container = document.querySelector(this.config.attachTo) || document.body;
@@ -614,6 +615,10 @@
      */
     _buildWhatsAppURL(name, email, phone, consent) {
       const parts = [`Olá! Meu nome é ${name}.`];
+      if (this._pendingContext) {
+        parts.push(`Tenho interesse em: ${this._pendingContext}.`);
+        this._pendingContext = null;
+      }
       if (email) parts.push(`Email: ${email}`);
       if (phone) parts.push(`Telefone: ${phone}`);
       if (consent) parts.push("Aceitou receber comunicados.");
@@ -777,7 +782,13 @@
     close() {
       this.modal.style.display = "none";
       this.fab?.setAttribute("aria-expanded", "false");
+      this._pendingContext = null;
       dispatchEvent(this.modal, "close", {});
+    }
+
+    /** Define o serviço de interesse para incluir na mensagem do WhatsApp. */
+    setContext(text) {
+      this._pendingContext = typeof text === "string" ? text.trim() || null : null;
     }
 
     /** Define dinamicamente o número do atendimento. */
@@ -821,6 +832,7 @@
       namespace.open = instance.open.bind(instance);
       namespace.close = instance.close.bind(instance);
       namespace.setNumber = instance.setNumber.bind(instance);
+      namespace.setContext = instance.setContext.bind(instance);
       namespace.updateConfig = instance.updateConfig.bind(instance);
       namespace.destroy = () => {
         instance?.destroy();
@@ -828,6 +840,7 @@
         delete namespace.open;
         delete namespace.close;
         delete namespace.setNumber;
+        delete namespace.setContext;
         delete namespace.updateConfig;
         delete namespace.destroy;
       };
