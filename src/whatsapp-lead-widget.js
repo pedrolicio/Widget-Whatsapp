@@ -619,7 +619,6 @@
         parts.push(`Tenho interesse em: ${this._pendingContext}.`);
         this._pendingContext = null;
       }
-      if (email) parts.push(`Email: ${email}`);
       if (phone) parts.push(`Telefone: ${phone}`);
       if (consent) parts.push("Aceitou receber comunicados.");
       const message = parts.join(" ");
