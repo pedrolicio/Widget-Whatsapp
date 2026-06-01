@@ -546,7 +546,7 @@
         phone,
         consent === "Sim"
       );
-      const popup = global.open(waUrl, "_blank");
+      global.open(waUrl, "_blank");
 
       const actionDate = new Date();
       const formattedActionDate = actionDate.toLocaleString("pt-BR", {
@@ -570,30 +570,30 @@
 
       dispatchEvent(this.modal, "submit", payload);
 
+      // O WhatsApp ja foi aberto acima. A partir daqui o registro do lead e
+      // best-effort: qualquer falha no envio (CSP, instabilidade do Apps
+      // Script, quirk de CORS no Safari/iOS) NAO deve fechar o WhatsApp nem
+      // alertar o usuario. Chegar na conversa e o objetivo; gravar o lead e
+      // secundario. Por isso o try/catch envolve so o envio e engole o erro.
       try {
         const ip = await this._getUserIP();
         if (ip) payload.userIP = ip;
         await this._postLead(payload);
+        dispatchEvent(this.modal, "success", payload);
+      } catch (error) {
+        log("error", "Falha no lead-save (best-effort, WhatsApp ja aberto)", error);
+        dispatchEvent(this.modal, "error", { error });
+        // Intencional: sem alert() e sem fechar o WhatsApp. Ver comentario acima.
+      } finally {
+        // O clique de WhatsApp aconteceu independente do lead-save — registra
+        // o evento, limpa e fecha o modal, e reabilita o botao em qualquer caso.
         this._trackGA("whatsappClick", {
           event_category: "engagement",
           event_label: "WhatsApp Form",
           value: 1,
         });
-        dispatchEvent(this.modal, "success", payload);
         this._resetForm();
         this.close();
-      } catch (error) {
-        log("error", "Erro ao enviar dados", error);
-        dispatchEvent(this.modal, "error", { error });
-        alert("Ocorreu um erro ao enviar os dados. Tente novamente.");
-        if (popup) {
-          try {
-            popup.close();
-          } catch (_) {
-            /* noop */
-          }
-        }
-      } finally {
         if (submitBtn) {
           submitBtn.removeAttribute("disabled");
           submitBtn.textContent = this.config.texts.submit;
