@@ -570,6 +570,17 @@
 
       dispatchEvent(this.modal, "submit", payload);
 
+      // Registra a conversao GA4 aqui — antes de qualquer await — para garantir
+      // o disparo mesmo que o usuario feche a aba ao ser redirecionado para o
+      // WhatsApp. Como nao ha await entre o clique do usuario e este ponto, o
+      // evento ainda esta sincrono com o gesto, o que tambem evita o bloqueio
+      // de popup do Safari/iOS no window.open acima.
+      this._trackGA("whatsappClick", {
+        event_category: "engagement",
+        event_label: "WhatsApp Form",
+        value: 1,
+      });
+
       // O WhatsApp ja foi aberto acima. A partir daqui o registro do lead e
       // best-effort: qualquer falha no envio (CSP, instabilidade do Apps
       // Script, quirk de CORS no Safari/iOS) NAO deve fechar o WhatsApp nem
@@ -585,13 +596,6 @@
         dispatchEvent(this.modal, "error", { error });
         // Intencional: sem alert() e sem fechar o WhatsApp. Ver comentario acima.
       } finally {
-        // O clique de WhatsApp aconteceu independente do lead-save — registra
-        // o evento, limpa e fecha o modal, e reabilita o botao em qualquer caso.
-        this._trackGA("whatsappClick", {
-          event_category: "engagement",
-          event_label: "WhatsApp Form",
-          value: 1,
-        });
         this._resetForm();
         this.close();
         if (submitBtn) {
