@@ -216,6 +216,11 @@
     return required ? `${baseLabel} *` : baseLabel;
   };
 
+  // A lead form is not a login. These attributes ask Bitwarden, 1Password, LastPass and
+  // Dashlane to skip its fields; the browser's own name and email suggestions stay.
+  const NO_PASSWORD_MANAGER =
+    'data-bwignore="true" data-1p-ignore data-lpignore="true" data-form-type="other"';
+
   const getModalMarkup = (cfg) => {
     const fields = [];
     fields.push(`
@@ -225,7 +230,7 @@
         )}</label>
         <input id="wlw-name" class="wlw-input" type="text" name="nome" required placeholder="${
           cfg.texts.namePlaceholder || "Seu nome"
-        }" autocomplete="name">
+        }" autocomplete="name" ${NO_PASSWORD_MANAGER}>
     `);
 
     if (cfg.contactFields.email.enabled) {
@@ -237,7 +242,7 @@
         )}</label>
         <input id="wlw-email" class="wlw-input" type="email" name="email" ${
           emailRequired ? "required" : ""
-        } placeholder="${cfg.texts.emailPlaceholder || "seu@email"}" autocomplete="email" inputmode="email">
+        } placeholder="${cfg.texts.emailPlaceholder || "seu@email"}" autocomplete="email" inputmode="email" ${NO_PASSWORD_MANAGER}>
       `);
     }
 
@@ -252,7 +257,7 @@
           phoneRequired ? "required" : ""
         } placeholder="${
           cfg.texts.phonePlaceholder || "(11) 99999-9999"
-        }" autocomplete="tel" inputmode="tel">
+        }" autocomplete="tel" inputmode="tel" ${NO_PASSWORD_MANAGER}>
       `);
     }
 
