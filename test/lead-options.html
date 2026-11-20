@@ -60,6 +60,14 @@
 		confere(posts.length === 1, "o lead deve ser enviado uma vez");
 		confere(!!evento, "o evento whatsappClick deve ir para o dataLayer");
 		confere(post.origem === "teste", "extraFields deve chegar ao envio");
+		// A lead form is not a login: password managers must skip its fields, and the browser
+		// keeps offering the visitor's own name and email.
+		var campos = Array.prototype.slice.call(document.querySelectorAll(".wlw-input"));
+		confere(campos.length >= 2 && campos.every(function (c) {
+			return c.getAttribute("data-bwignore") === "true" && c.hasAttribute("data-1p-ignore") &&
+				c.getAttribute("data-lpignore") === "true" && c.getAttribute("data-form-type") === "other";
+		}), "os campos devem pedir aos gerenciadores de senha que os ignorem");
+		confere(document.querySelector("#wlw-name").autocomplete === "name" && document.querySelector("#wlw-email").autocomplete === "email", "o navegador continua sugerindo nome e email");
 		if (modo === "on") {
 			confere(/^[1-9]\d{4}$/.test(post.codigo || ""), "codigo deve ter 5 dígitos, de 10000 a 99999");
 			confere(texto.slice(-(" (código " + post.codigo + ")").length) === " (código " + post.codigo + ")", "a mensagem deve terminar com o mesmo código do envio");
