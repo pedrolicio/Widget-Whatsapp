@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Teste das opções leadCode, extraFields como função e sendUserData</title>
+</head>
+<body>
+<!--
+  Teste manual das opções da v0.5. Sirva a pasta do repositório (por exemplo
+  `python -m http.server 8765`) e abra:
+    /test/lead-options.html?modo=on   as três opções ligadas
+    /test/lead-options.html?modo=off  comportamento da v0.4
+  O resultado aparece em JSON abaixo, com "ok": true quando tudo confere. Nada sai da
+  página: window.open e fetch são substituídos.
+-->
+<pre id="resultado">rodando</pre>
+<script>
+	var modo = new URLSearchParams(location.search).get("modo") || "on";
+	var abertos = [], posts = [];
+	window.open = function (url) { abertos.push(url); return null; };
+	window.fetch = function (url, opts) {
+		if (String(url).indexOf("ipify") >= 0) return Promise.reject(new Error("sem ip no teste"));
+		var campos = {};
+		opts.body.forEach(function (valor, chave) { campos[chave] = valor; });
+		posts.push(campos);
+		return Promise.resolve(new Response('{"success":true}', { status: 200 }));
+	};
+	window.dataLayer = [];
+</script>
+<script src="../src/whatsapp-lead-widget.js"></script>
+<script>
+	var chamadasExtra = 0, chamadasUserData = 0;
+	var base = { scriptURL: "https://exemplo.invalid/exec", whatsappNumber: "5521999999999", enableGA4: true };
+	var config = modo === "on"
+		? Object.assign({}, base, {
+			leadCode: true,
+			sendUserData: function () { chamadasUserData++; return true; },
+			extraFields: function () { chamadasExtra++; return { origem: "teste", cookies_publicidade: "aceitou" }; },
+		})
+		: Object.assign({}, base, { extraFields: { origem: "teste" } });
+	window.WhatsAppLeadWidget.init(config);
+
+	function espera(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+	(async function () {
+		var falhas = [];
+		function confere(condicao, texto) { if (!condicao) falhas.push(texto); }
+		await espera(500);
+		window.WhatsAppLeadWidget.open();
+		await espera(300);
+		document.querySelector("#wlw-name").value = "Ana Teste";
+		document.querySelector("#wlw-email").value = " Ana.Teste@Exemplo.com ";
+		document.querySelector(".wlw-form").dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+		await espera(1800);
+
+		var evento = window.dataLayer.filter(function (d) { return d && d.event === "whatsappClick"; })[0] || null;
+		var texto = abertos[0] ? decodeURIComponent(abertos[0].split("text=")[1]) : "";
+		var post = posts[0] || {};
+		confere(abertos.length === 1, "o WhatsApp deve abrir uma vez");
+		confere(posts.length === 1, "o lead deve ser enviado uma vez");
+		confere(!!evento, "o evento whatsappClick deve ir para o dataLayer");
+		confere(post.origem === "teste", "extraFields deve chegar ao envio");
+		if (modo === "on") {
+			confere(/^[1-9]\d{4}$/.test(post.codigo || ""), "codigo deve ter 5 dígitos, de 10000 a 99999");
+			confere(texto.slice(-(" (código " + post.codigo + ")").length) === " (código " + post.codigo + ")", "a mensagem deve terminar com o mesmo código do envio");
+			confere(post.cookies_publicidade === "aceitou", "extraFields como função deve ser chamada no envio");
+			confere(chamadasExtra === 1, "extraFields como função deve ser chamada uma vez por envio");
+			confere(!!evento && !!evento.user_data && evento.user_data.email === "ana.teste@exemplo.com", "user_data.email deve ir em minúsculas e sem espaços no mesmo push do evento");
+		} else {
+			confere(!("codigo" in post), "sem leadCode não vai codigo");
+			confere(texto.indexOf("código") === -1, "sem leadCode a mensagem não muda");
+			confere(texto === "Olá! Meu nome é Ana Teste.", "a mensagem deve ser a da v0.4");
+			confere(!!evento && !("user_data" in evento), "sem sendUserData o evento não leva user_data");
+		}
+		document.getElementById("resultado").textContent = JSON.stringify({ modo: modo, ok: falhas.length === 0, falhas: falhas, texto: texto, codigo: post.codigo || null, evento: evento }, null, 1);
+	})().catch(function (erro) {
+		document.getElementById("resultado").textContent = JSON.stringify({ modo: modo, ok: false, erro: String(erro && erro.stack || erro) }, null, 1);
+	});
+</script>
+</body>
+</html>

@@ -66,6 +66,25 @@ da sua planilha, preencha as chaves de configuração (`spreadsheetId`, `sheetNa
 
 > Observação: o número do WhatsApp deve estar no formato `DDI + DDD + número`, contendo apenas dígitos.
 
+### Opções da v0.5
+
+As três vêm desligadas, e sem elas o widget se comporta como na v0.4.
+
+- `leadCode: true` gera um código de 5 dígitos a cada envio. Ele vai para o backend no campo `codigo` e entra no fim da mensagem do WhatsApp, como `(código 48213)`. Quem atende digita o código e acha o lead, sem depender do nome. A planilha precisa de uma coluna `codigo`.
+- `extraFields` aceita também uma função sem argumentos que devolve o objeto. Ela é chamada a cada envio, para campos que mudam durante a visita, como a escolha de cookies.
+- `sendUserData` aceita `true`, `false` ou uma função que devolve um dos dois, chamada a cada envio. Quando verdadeiro, o evento `whatsappClick` leva `user_data: { email }`, com o email em minúsculas, no mesmo `dataLayer.push` do evento (ou em `gtag("set", "user_data", ...)` quando a página usa gtag direto). Serve para as conversões otimizadas para leads do Google Ads. Passe uma função que devolva `false` para quem recusou cookies de publicidade.
+
+```js
+WhatsAppLeadWidget.init({
+  // ...
+  leadCode: true,
+  extraFields: () => ({ origem: "Website - WhatsApp Widget", cookies_publicidade: lerEscolhaDeCookies() }),
+  sendUserData: () => lerEscolhaDeCookies() !== "recusou",
+});
+```
+
+Para testar as três opções sem enviar nada, sirva a pasta do repositório e abra `test/lead-options.html?modo=on` e `?modo=off`.
+
 ### Configurar a planilha do Google Sheets
 
 1. Acesse o [Google Sheets](https://docs.google.com/spreadsheets/) e crie uma nova planilha em branco.

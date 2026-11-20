@@ -77,6 +77,31 @@
     return output;
   };
 
+  /** Codigo de 5 digitos, de 10000 a 99999, para ligar a conversa do WhatsApp ao lead. */
+  const generateLeadCode = () => {
+    let sorteio = Math.random();
+    try {
+      const bytes = new Uint32Array(1);
+      global.crypto.getRandomValues(bytes);
+      sorteio = bytes[0] / 4294967296;
+    } catch (error) {
+      // Sem crypto, Math.random basta: o codigo nao e segredo.
+    }
+    return String(10000 + Math.floor(sorteio * 90000));
+  };
+
+  /** Valor de uma opcao que pode ser fixa ou uma funcao; funcao que falha vale o padrao. */
+  const resolveOption = (option, fallback) => {
+    if (typeof option !== "function") return option == null ? fallback : option;
+    try {
+      const value = option();
+      return value == null ? fallback : value;
+    } catch (error) {
+      log("warn", "Falha ao ler opcao dinamica", error);
+      return fallback;
+    }
+  };
+
   const TRACKING_PARAMS = [
     "utm_source",
     "utm_medium",
@@ -163,7 +188,15 @@
     ipLookupTimeoutMs: 800,
     backgroundPattern:
       "https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png",
+    // Objeto fixo ou funcao sem argumentos que devolve o objeto; a funcao e chamada a cada
+    // envio, para campos que mudam durante a visita (ex.: a escolha de cookies).
     extraFields: {},
+    // Gera um codigo de 5 digitos por envio, manda como `codigo` e acrescenta
+    // " (código NNNNN)" no fim da mensagem do WhatsApp, para o atendimento achar o lead.
+    leadCode: false,
+    // Booleano ou funcao que devolve booleano, chamada a cada envio. Quando verdadeiro, o
+    // evento whatsappClick leva `user_data.email` para a tag do Google (conversoes otimizadas).
+    sendUserData: false,
     attachTo: "body",
     texts: DEFAULT_TEXTS,
     theme: DEFAULT_THEME,
@@ -540,11 +573,13 @@
         consent: consent === "Sim",
       });
 
+      const leadCode = this.config.leadCode ? generateLeadCode() : "";
       const waUrl = this._buildWhatsAppURL(
         name,
         email,
         phone,
-        consent === "Sim"
+        consent === "Sim",
+        leadCode
       );
       global.open(waUrl, "_blank");
 
@@ -565,8 +600,9 @@
           },
           collectTrackingData()
         ),
-        this.config.extraFields || {}
+        resolveOption(this.config.extraFields, {}) || {}
       );
+      if (leadCode) payload.codigo = leadCode;
 
       dispatchEvent(this.modal, "submit", payload);
 
@@ -587,11 +623,19 @@
       } finally {
         // O clique de WhatsApp aconteceu independente do lead-save — registra
         // o evento, limpa e fecha o modal, e reabilita o botao em qualquer caso.
-        this._trackGA("whatsappClick", {
-          event_category: "engagement",
-          event_label: "WhatsApp Form",
-          value: 1,
-        });
+        const userData =
+          resolveOption(this.config.sendUserData, false) && email
+            ? { email: email.trim().toLowerCase() }
+            : null;
+        this._trackGA(
+          "whatsappClick",
+          {
+            event_category: "engagement",
+            event_label: "WhatsApp Form",
+            value: 1,
+          },
+          userData
+        );
         this._resetForm();
         this.close();
         if (submitBtn) {
@@ -613,7 +657,7 @@
      * @param {string} email
      * @param {boolean} consent
      */
-    _buildWhatsAppURL(name, email, phone, consent) {
+    _buildWhatsAppURL(name, email, phone, consent, leadCode) {
       const parts = [`Olá! Meu nome é ${name}.`];
       if (this._pendingContext) {
         parts.push(`Tenho interesse em: ${this._pendingContext}.`);
@@ -621,6 +665,7 @@
       }
       if (phone) parts.push(`Telefone: ${phone}`);
       if (consent) parts.push("Aceitou receber comunicados.");
+      if (leadCode) parts.push(`(código ${leadCode})`);
       const message = parts.join(" ");
       const number = this.runtimeNumber || this.config.whatsappNumber;
       const encoded = encodeURIComponent(message);
@@ -689,10 +734,11 @@
     }
 
     /** Dispara evento GA4, se configurado. */
-    _trackGA(eventName, params = {}) {
+    _trackGA(eventName, params = {}, userData = null) {
       if (!this.config.enableGA4 || !eventName) return;
       try {
         if (typeof global.gtag === "function") {
+          if (userData) global.gtag("set", "user_data", userData);
           global.gtag("event", eventName, params);
         } else {
           const normalizeKey = (key) =>
@@ -704,6 +750,8 @@
             }),
             { event: eventName }
           );
+          // No mesmo push do evento, para a tag que dispara nele ja encontrar o dado.
+          if (userData) dataLayerParams.user_data = userData;
           global.dataLayer = global.dataLayer || [];
           global.dataLayer.push(dataLayerParams);
         }
